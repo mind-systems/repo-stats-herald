@@ -4,6 +4,26 @@
 
 A service that listens for GitHub push events, generates human-readable summaries of changes using an LLM, and delivers them to the right place depending on the branch. Acts as a press secretary between the development process and the outside world.
 
+## Status
+
+This page describes the **target contract**. What runs today: the summarization slice — commit collection (`src/commits/`), the LLM boundary (`src/llm/`), the summarizer (`src/summarization/`) — driven by hand via the CLI (`scripts/summarize_range.py`) and verified by the eval harness. The webhook receiver, delivery, releases, and the internal protocol are not built yet.
+
+## Commands
+
+```bash
+make install    # uv sync
+make run        # uvicorn src.main:app --reload --port 8000
+make tunnel     # SSH-forward Ollama to localhost:11434 (idempotent; params from .env.dev)
+make dev        # tunnel + summarize HEAD~3..HEAD of this repo
+make eval       # tunnel + run the eval harness
+```
+
+Ollama runs on a remote host and is only reachable through the SSH tunnel — `make tunnel` is a prerequisite for any run that touches the LLM. Connection params live in `.env.dev` (see `.env.example`).
+
+## Verification — eval harness
+
+Summary quality is checked against fixed cases, not eyeballed: `evals/cases.yaml` holds `{repo, range, lang}` cases, `evals/reference/<case>.md` holds user-authored good notes (never fabricated), and `make eval` writes one `evals/out/<case>.md` per case with stable filenames for diffing against the references. Prompt or model changes must be run through the harness.
+
 ## How It Works
 
 When a push happens to any tracked repository:
@@ -47,8 +67,8 @@ Uses a GitHub App (not personal tokens) installed on all tracked repositories. P
 
 ## Stack
 
-- **FastAPI** — webhook receiver
-- **Ollama** — LLM summarization (runs on the host server)
-- **asyncpg** — not used directly; apps own their own DBs
-- **Telegram Bot API** — dev branch delivery
-- **Docker** — packaged as a container
+- **FastAPI + uvicorn** — the service (webhook receiver in the target contract; `/health` today)
+- **Ollama** — LLM summarization; lives on the server, where the deployed service will sit right next to it. The SSH tunnel exists only for dev, while the service runs locally for debugging
+- **httpx** — Ollama HTTP client
+- **pydantic-settings** — typed config from env (`src/core/config.py`)
+- **Telegram Bot API** — delivery (target)

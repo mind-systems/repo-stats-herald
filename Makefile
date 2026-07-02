@@ -1,4 +1,4 @@
--include .env
+-include .env.dev
 export
 
 .PHONY: install run tunnel dev eval
