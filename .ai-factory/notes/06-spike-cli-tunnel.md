@@ -28,11 +28,8 @@ Tasks 01–05 give a bootable app, `Settings`, `GitCommitCollector`, `OllamaClie
   ```
   Uses `argparse` (or `typer` if already pulled in — prefer stdlib `argparse` to avoid a dep). No business logic here — assembly only.
 - `Makefile` gains:
-  - `tunnel:` — **idempotent**. Guard first: if `localhost:11434` is already listening (`nc -z localhost 11434` or `lsof -i :11434`), do nothing; otherwise open a backgrounded tunnel:
-    `ssh -f -N -i $(SSH_KEY) -p $(SSH_PORT) -L 11434:127.0.0.1:11434 $(SSH_HOST)`
-    Read `SSH_KEY` / `SSH_PORT` / `SSH_HOST` from `.env` (never hardcode the host IP in the Makefile).
-  - `dev:` → `tunnel` then run the app / or invoke the spike.
-  - `spike:` (optional convenience) → `tunnel` then `uv run python scripts/summarize_range.py --repo . --range HEAD~3..HEAD`.
+  - `tunnel:` — **idempotent**, guarded on one shell line: `nc -z localhost 11434 || ssh -f -N -i $(SSH_KEY) -p $(SSH_PORT) -L 11434:127.0.0.1:11434 $(SSH_HOST)` (does nothing if `localhost:11434` is already listening, otherwise opens the backgrounded tunnel). `SSH_KEY` / `SSH_PORT` / `SSH_HOST` are loaded from `.env` via `-include .env` + `export` (never hardcode the host IP in the Makefile).
+  - `dev:` → depends on `tunnel`, then `uv run python -m scripts.summarize_range --repo . --range HEAD~3..HEAD` (module form — a bare `scripts/summarize_range.py` path fails with `ModuleNotFoundError`).
 
 ### Architecture notes
 The CLI is a composition root exactly like `src/main.py` will be for the web app — the single wiring point where abstractions meet concretes. Everything below it stays free of instantiation decisions. The tunnel is a **dev-only** concern: on the server, herald runs in Docker and reaches Ollama directly via the server-side `OLLAMA_URL`, so nothing tunnel-related belongs in application code — it lives only in the Makefile.
@@ -44,8 +41,8 @@ The CLI is a composition root exactly like `src/main.py` will be for the web app
 
 ### Verify
 - With `.env` filled (real `SSH_*` + `OLLAMA_URL=http://localhost:11434`):
-  `make dev` (or `make spike`) brings the tunnel up if absent, then
-  `scripts/summarize_range.py --repo . --range HEAD~3..HEAD` prints a coherent RU summary of this repo's recent commits.
+  `make dev` brings the tunnel up if absent, then runs
+  `uv run python -m scripts.summarize_range --repo . --range HEAD~3..HEAD`, which prints a coherent RU summary of this repo's recent commits.
 - Running `make dev` twice does not open a second tunnel.
 
 ## Open Questions
