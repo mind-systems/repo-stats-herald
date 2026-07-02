@@ -38,3 +38,7 @@ htmlcov/
 .env
 .env.*
 !.env.example
+
+# Eval outputs (generated, not tracked)
+evals/out/*
+!evals/out/.gitkeep

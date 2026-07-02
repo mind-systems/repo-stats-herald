@@ -1,0 +1,10 @@
+cases:
+  - name: herald-recent
+    repo: .
+    range: HEAD~3..HEAD
+    lang: ru
+
+  - name: herald-recent-en
+    repo: .
+    range: HEAD~3..HEAD
+    lang: en
