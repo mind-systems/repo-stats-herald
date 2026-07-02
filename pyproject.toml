@@ -2,4 +2,8 @@
 name = "repo-stats-herald"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["fastapi", "uvicorn[standard]"]
+dependencies = [
+    "fastapi",
+    "pydantic-settings>=2.14.2",
+    "uvicorn[standard]",
+]
