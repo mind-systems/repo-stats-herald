@@ -20,13 +20,100 @@
 
 ## Phases (backlog)
 
-- [ ] **Summarizer spike & eval harness** — decomposed above into Phase 1 (tasks 01–07). Prove a local run can hit Ollama and produce decent RU notes from a real commit range before any plumbing is built.
-- [ ] **Structure-aware context collection** — extends `commits/`: richer input for the LLM — PR titles/bodies + a short per-repo "project map" on top of messages/diff-stats/changed paths. Quality comes from what is fed in, not the model guessing.
-- [ ] **Two-stage summarization pipeline** — extends `summarization/`: stage 1 atomic per-commit/PR summaries (parallel), stage 2 aggregate into a digest. Keeps the 14B model in its competence zone; swappable at the boundary.
-- [ ] **Herald core service** — FastAPI webhook receiver triggered by a `.github/workflows/herald.yml` per repo; branch detection; Telegram delivery (RU) for non-release branches. Provision the GitHub App (contents/metadata read) and Telegram bot.
-- [ ] **Daily digest accumulation** — persist per-branch digests and accumulate commits since the last deploy to staging/master, so release notes are built from collected history, never from scratch.
-- [ ] **GitHub releases & versioning** — semver bump on master + release; `-rc` on staging + pre-release; back-merge detection (SHA already in master → skip bump). Adds `releases: write` to the GitHub App.
-- [ ] **First app integration (manual) + frozen contract** — hand-write the two internal endpoints into one real app, storing entries in its own Postgres (note: mind_api already has a `src/changelog/` feature to build on). Freeze the contract as a single `contract/changelog.openapi.yaml` — the one cross-cutting invariant.
-- [ ] **Extracted changelog SDK** — after a second manual integration reveals what actually repeats, extract the thin shared part (table migration + write router) into `sdk/nestjs/` and `sdk/fastapi/` in this mono-repo. Consumed by git, not a public registry. SDK extraction comes last.
-- [ ] **Production deployment** — package herald as a Docker container with clean env/config wiring (Ollama URL, GitHub App creds, Telegram token) and ship the `herald.yml` workflow for tracked repos. Where it runs is the deployer's concern, not ours.
-- [ ] **Quality feedback loop** — fold approved release notes back into the eval set and few-shot prompt so quality compounds; keep the LLM boundary swappable for a larger/hosted model upgrade without re-platforming.
+### Phase 2 — Structure-aware context collection
+
+The summarizer works today from commit messages, changed paths, and diffstats — the
+model infers intent from thin input. This phase enriches `commits/` context with PR
+titles and bodies and a short per-repo project map, so quality comes from what is fed
+in rather than the model guessing. Extends the existing `commits/` collection and the
+`PromptBuilder` context; needs no service plumbing — it improves the hand-runnable
+slice and is measured through the existing eval harness. See
+[docs/summarization.md](../docs/summarization.md).
+
+### Phase 3 — Two-stage summarization pipeline
+
+A single LLM call reasoning over a whole push strains the 14B model. This phase splits
+summarization into stage one (atomic per-commit/PR summaries, run in parallel) and
+stage two (aggregate into a digest), keeping each call in the model's competence zone
+and yielding key-moment digests rather than per-commit logs. Swappable at the
+`LLMClient` boundary. Builds on Phase 2's richer context. See
+[docs/summarization.md](../docs/summarization.md).
+
+### Phase 4 — Herald core service (ingestion → Telegram)
+
+Nothing turns a real push into a delivered note — the summarizer runs only by hand.
+This phase stands up the FastAPI webhook receiver and the first end-to-end path:
+push → summary → Telegram (language a configured default, RU, resolved through the
+seam — not hard-coded). Pushes arrive as the GitHub App's single signed
+webhook (not a per-repo `herald.yml`); signature verification and the installation
+scope are the authorization and anti-spam boundary. Branch-role resolution
+(`master`/`main` → release, `staging`, else `dev`) and the delivery-plan resolver seam
+land here, with the `organization → Telegram channel` map behind it. Requires
+provisioning the GitHub App (contents/metadata/pull_requests) and the Telegram bot.
+Only the Telegram channel fires in this phase — releases and changelog come later.
+See [docs/ingestion.md](../docs/ingestion.md), [docs/delivery.md](../docs/delivery.md),
+[docs/configuration.md](../docs/configuration.md).
+
+### Phase 5 — Digest accumulation
+
+Release notes for staging and master must reflect everything since the last deploy,
+not a single push. This phase persists per-branch digests and accumulates commits
+since the previous deploy to each environment, so notes are built from collected
+history. Blocked on the core service (Phase 4) producing digests to persist. See
+[docs/summarization.md](../docs/summarization.md).
+
+### Phase 6 — GitHub releases & versioning
+
+The release channel and the version lifecycle. On `staging` and the default branch,
+cut a GitHub release (language a configured default, EN) with a semver tag: a full
+release on `master`/`main`, a
+`-rc` pre-release on `staging`. Detect back-merges from the default branch into
+staging (incoming SHAs already released) and skip the version bump. Adds tag and
+release creation through the GitHub App's `contents: write`. Blocked on the core
+service (Phase 4). See [docs/versioning.md](../docs/versioning.md),
+[docs/delivery.md](../docs/delivery.md).
+
+### Phase 7 — Internal protocol & first app integration
+
+The third channel — writing notes into an integrated app's own changelog store.
+Hand-write the two internal endpoints (`GET /internal/changelog/config`,
+`POST /internal/changelog/entry`) into one real app (mind_api already has a
+`src/changelog/` feature to build on), storing entries in its own Postgres, reachable
+on the internal network with no API keys. Herald gains the `repository → changelog
+app` map and per-app language negotiation — it generates the languages the app
+declares. Freeze the contract as a single `contract/changelog.openapi.yaml`, the one
+cross-cutting invariant. Blocked on releases (Phase 6) supplying the version and
+github_url an entry carries. See [docs/internal-protocol.md](../docs/internal-protocol.md).
+
+### Phase 8 — Extracted changelog SDK
+
+After a second manual integration reveals what actually repeats, extract the thin
+shared part (table migration + write router) into `sdk/nestjs/` and `sdk/fastapi/` in
+this monorepo, consumed by git rather than a public registry. SDK extraction comes
+last, once the contract has proven stable across two real integrations. Blocked on
+Phase 7 and a second integration. See [docs/internal-protocol.md](../docs/internal-protocol.md).
+
+### Phase 9 — Production deployment
+
+Package Herald as a Docker container with clean env/config wiring (Ollama URL, GitHub
+App creds and webhook secret, Telegram token), sitting next to Ollama on the server so
+the SSH tunnel stays dev-only. Where it runs is the deployer's concern. Blocked on a
+working end-to-end path (Phase 4). See [docs/configuration.md](../docs/configuration.md).
+
+### Phase 10 — Quality feedback loop
+
+Fold approved release notes back into the eval case set and the few-shot prompt so
+quality compounds, and keep the `LLMClient` boundary swappable for a larger or hosted
+model without re-platforming. Ongoing once notes are produced in production. See
+[docs/summarization.md](../docs/summarization.md).
+
+### Phase 11 — Multi-tenant configuration & GUI
+
+Today routing state (org→channel, repo→app, branch roles) lives in environment/static
+config behind the resolver seam. This phase grows the backing store from env →
+database → a GUI where organizations self-manage their repositories, delivery
+channels, and access rights, turning Herald into a service usable by many
+organizations at once. Per-app access keys enter here, at the point apps are reached
+across a network boundary rather than co-located. Depends only on the seam (Phase 4)
+existing; deliberately deferred until single-tenant operation is proven. See
+[docs/configuration.md](../docs/configuration.md).
