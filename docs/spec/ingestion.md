@@ -38,7 +38,7 @@ organization IDs**. Every event carries the installing organization's identity
 (`organization.id` / `installation.account.id`); Herald checks it against the allowlist:
 
 - **on the allowlist** — it mints an installation token and runs the pipeline;
-- **not on the allowlist** — it drops the event: no token, no summarization, no
+- **not on the allowlist** — it drops the event: no token, no processing, no
   delivery, no LLM spend.
 
 The two layers are distinct:
@@ -88,9 +88,9 @@ resolves an optional changelog target; the branch resolves the role. See
 
 | Permission | Access | Why |
 |------------|--------|-----|
-| **Contents** | write | Read commit history and file contents for summarization; create tags and releases. Release and tag creation both fall under Contents write. |
+| **Contents** | write | Read commit history and file contents for the mirror the derivation engine replays; create tags and releases. Release and tag creation both fall under Contents write. |
 | **Metadata** | read | Mandatory baseline for any GitHub App. |
-| **Pull requests** | read | Read PR titles and bodies for richer summarization context. Used only where the summarizer consumes PR data. |
+| **Pull requests** | read | Read PR titles and bodies for richer narration context. Consumed only where a narration draws on PR data. |
 
 Herald authenticates as the App (App ID + private key), exchanges that for an
 installation access token per organization, and uses the token for all reads and for

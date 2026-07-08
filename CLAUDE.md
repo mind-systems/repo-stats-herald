@@ -6,6 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Only the summarization slice runs today: commit collection (`src/commits/`), the LLM boundary (`src/llm/`), and the summarizer (`src/summarization/`), wired by hand in `scripts/summarize_range.py` and exercised through the eval harness. `src/main.py` is a bare FastAPI app exposing `GET /health`. The webhook receiver, delivery, releases, and the internal protocol are specified but not built — treat their docs as the target contract, not existing code.
 
+## Stack
+
+- **Python 3.12 · FastAPI / uvicorn** — the service (`/health` today; webhook receiver in the target)
+- **uv** — packaging and task runs
+- **Ollama** via **httpx** — LLM generation and, in the target, embeddings; over the SSH tunnel in dev, co-located in prod
+- **Postgres + pgvector** — Herald's own database: the knowledge store's vector search plus relational state (target; `herald_database` locally)
+- **pydantic-settings** — typed config from env (`src/core/config.py`)
+- **Telegram Bot API** — delivery (target)
+
 ## Commands
 
 ```bash
@@ -17,6 +26,23 @@ make eval       # tunnel + run the eval harness
 ```
 
 The SSH tunnel is a **local-dev** concern only: during development Ollama runs on a remote host reachable through the tunnel, so `make tunnel` is a prerequisite for any local run that touches the LLM (params in `.env.dev`, see `.env.example`). In the deployed setup the service sits next to Ollama on the server and reaches it on `localhost` — no tunnel.
+
+### First-time setup — database
+
+Herald uses its own Postgres database with the `vector` extension (pgvector), for the knowledge store and relational state. Once per machine:
+
+```bash
+# 1. Install pgvector for the SAME Postgres major your server runs. On a Homebrew
+#    multi-major box, build from source against that server's pg_config:
+#      git clone https://github.com/pgvector/pgvector && cd pgvector
+#      make install PG_CONFIG=/usr/local/opt/postgresql@17/bin/pg_config
+# 2. Create Herald's role, database, and extension:
+psql -d postgres -c "CREATE ROLE herald_username LOGIN PASSWORD 'herald_password';"
+psql -d postgres -c "CREATE DATABASE herald_database OWNER herald_username;"
+psql -d herald_database -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
+
+Connection params live in `.env.dev` (`POSTGRES_*`); see `.env.example`. In production the database ships as a pgvector image in Herald's container set.
 
 ## Architecture
 
@@ -51,14 +77,15 @@ Log through Python's `logging` module with structured output; level via the `LOG
 
 ## Documentation
 
-The full spec lives in [docs/spec/](docs/spec-overview.md) — start at the overview.
+The **architecture** — the intent→change→outcome model and the seams — is in [docs/architecture.md](docs/architecture.md). The behavioral spec lives in [docs/spec/](docs/spec-overview.md) — start at the overview. Forward-looking design concepts live in [docs/concepts/](docs/concepts/source-strategy-profiles.md).
 
 | Doc | What it covers |
 |-----|-----------------|
 | [Overview](docs/spec-overview.md) | Spec entrance — end-to-end flow, actors, design spine |
-| [Ingestion & Authorization](docs/spec/ingestion.md) | GitHub App webhook, installation as trust boundary, permissions |
-| [Summarization](docs/spec/summarization.md) | Commit collection, two-stage digest, generation languages |
-| [Delivery & Routing](docs/spec/delivery.md) | Branch role, the three channels, delivery plan |
-| [Versioning](docs/spec/versioning.md) | Semver, `-rc` on staging, back-merge skip |
-| [Internal Protocol](docs/spec/internal-protocol.md) | Changelog contract toward integrated apps |
-| [Configuration](docs/spec/configuration.md) | The resolver seam, global settings, multi-tenant evolution |
+| [Ingestion & Authorization](docs/spec/ingestion.md) | GitHub App webhook, installation as trust boundary, serve-allowlist |
+| [Understanding](docs/spec/understanding.md) | Per-project knowledge model (RAG) + the project graph |
+| [Narration](docs/spec/narration.md) | Feature-level notes, context sources, cross-project ripple, reports, languages |
+| [Conversation](docs/spec/conversation.md) | Asking Herald about a project — questions answered from its memory by the reasoner |
+| [Replay](docs/spec/replay.md) | Backtest over an existing history — simulated time, active-day reports, tag milestones |
+| [Delivery](docs/spec/delivery.md) | Branch role, channels, delivery plan, versioning, internal protocol |
+| [Configuration](docs/spec/configuration.md) | The resolver seam, global settings, database, multi-tenant evolution |
