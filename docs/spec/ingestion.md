@@ -16,13 +16,40 @@ installation is offered in two scopes:
 | **Only select repositories** | Only the chosen repositories are covered; the set is managed in the GitHub UI. |
 
 Repository visibility does not matter — private and public repositories are covered
-identically. The installation is the authorization boundary: Herald acts only on
-repositories an installation covers, and a repository is onboarded the moment the App
-is installed on it, with no further wiring.
+identically. The installation is the GitHub-side access boundary: Herald can reach only
+repositories an installation covers, and a repository becomes reachable the moment the
+App is installed on it, with no further wiring. Whether Herald actually *serves* the
+organization behind that installation is a separate decision — see
+[Who Herald serves](#who-herald-serves).
 
 When the installation uses **Only select repositories**, Herald tracks the
 `installation_repositories` event so it learns immediately when a repository is added
 to or removed from its reach.
+
+## Who Herald serves
+
+Being installable is not the same as being served. The App is public — it has to be, to
+reach more than one organization — so anyone could install it on their own
+repositories. GitHub's scoping and the signed webhook keep out unsolicited
+*repositories*, but they do not stop an unsolicited *organization* from installing.
+
+Serving is therefore gated a second time, on Herald's side, by a **serve-allowlist of
+organization IDs**. Every event carries the installing organization's identity
+(`organization.id` / `installation.account.id`); Herald checks it against the allowlist:
+
+- **on the allowlist** — it mints an installation token and runs the pipeline;
+- **not on the allowlist** — it drops the event: no token, no summarization, no
+  delivery, no LLM spend.
+
+The two layers are distinct:
+
+| Layer | Owner | Decides |
+|-------|-------|---------|
+| Installation | GitHub | which **repositories** Herald may access, and which generate events |
+| Serve-allowlist | Herald | which **organizations** Herald actually acts for |
+
+The allowlist lives behind the config resolver, so it starts as a small static set of
+org IDs and later becomes self-service onboarding (see [configuration.md](configuration.md)).
 
 ## Trigger: the App's own webhook
 
@@ -37,8 +64,9 @@ This makes authorization and spam-resistance intrinsic:
   signature does not match. An open HTTP endpoint that drives the LLM is otherwise a
   standing invitation to be flooded; the signature closes it.
 - **Installation-scoped.** Only repositories under an installation generate events at
-  all. There is no list for Herald to maintain — the set of repositories it serves is
-  exactly the set the App is installed on.
+  all, so there is no per-repository list for Herald to maintain. Which
+  *organizations* it serves is a separate, Herald-owned gate — see
+  [Who Herald serves](#who-herald-serves).
 
 Because the trigger is the App's webhook rather than a workflow dropped into each
 repository, tracked repositories need no `herald.yml` and no repository-level secret.

@@ -39,6 +39,9 @@ htmlcov/
 .env.*
 !.env.example
 
+# Secrets — keys belong outside the repo; never commit one placed nearby
+*.pem
+
 # Eval outputs (generated, not tracked)
 evals/out/*
 !evals/out/.gitkeep

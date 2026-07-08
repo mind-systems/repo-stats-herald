@@ -22,6 +22,7 @@ what lets the backing store change without a rewrite.
 
 | State | Consulted | Content |
 |-------|-----------|---------|
+| Serve-allowlist | every event | The set of organization IDs Herald acts for. An event from an org not on it is dropped before any work — the Herald-side half of the two-layer access model (see [ingestion.md](ingestion.md)). |
 | Branch-role classification | every push | The fixed mapping of branch names to `release` / `staging` / `dev`. |
 | `organization → Telegram channel` | every push | The channel id notifications go to for that org. |
 | Channel languages | every push | The language each fixed channel delivers in — Telegram (default RU) and the GitHub release (default EN). Held as configured defaults rather than code literals, so they can later move to a database or a per-organization setting. The app changelog store is not here — it negotiates its languages per app (see [internal-protocol.md](internal-protocol.md)). |
