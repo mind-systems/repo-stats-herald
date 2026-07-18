@@ -12,6 +12,7 @@ Run the distiller once over a repo's current state, write its output to a fixed 
 
 - `src/knowledge/bootstrap.py` — `CodeBootstrap.run(repo: str, org_id: int)`:
   - `CodeDistiller.distill` (5.2) over the mirror's current HEAD, scoped by `CodeSourceStrategy` (5.1);
+  - the draft's content is the distiller's output as-is — a present-tense feature inventory per the distillation rubric (`docs/concepts/code-derived-understanding.md`); bootstrap adds only the document frame, no prompting of its own;
   - write the result to a **fixed draft path the default `SourceStrategy` does not select** — `.ai-factory/bootstrap-draft.md` — clearly marked as LLM-generated and unreviewed. Because this path is outside the selected set (3.4.1's contract), 3.6 never indexes it, however fresh or stale it is.
   - stop there — **no direct write to `KnowledgeStore`**. A human reviews the draft, then copies/adapts its content into a curated, source-**selected** artifact (e.g. an `ARCHITECTURE.md` section, or a new selected doc) and commits *that*. The existing on-push sync (3.6) then indexes the reviewed artifact exactly like any other selected source — no new memory-writing path.
 

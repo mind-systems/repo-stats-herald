@@ -55,6 +55,29 @@ human does by hand when authoring a roadmap or architecture doc — automated, a
 a human able to review the result before it becomes ground truth. Narration itself
 never reasons from raw classes; it always reasons from a settled meaning layer.
 
+## What counts as a feature — the distillation rubric
+
+The class-vs-feature risk is held down by a discriminator, not by hoping the model
+generalizes. The distillation asks, of each candidate unit:
+
+> Could you write an e2e test for this that didn't exist before?
+
+Yes — it is a feature: any verifiable interaction counts (user→system,
+system→system, system→external service, or an internal subsystem with its own
+behaviour contract). No — it is internal (a refactor, a cleanup, plumbing) and stays
+out of the inventory. On top of the discriminator, the naming discipline:
+
+- a feature is named in 2–5 words from the operator's perspective — what the system
+  can do, never how it is built;
+- prefer fewer, larger features — a cross-cutting capability spanning many files is
+  one entry, not one per module;
+- module and directory names never become feature names.
+
+This is the same rubric that curates the `## Features` table an ai-factory harness
+keeps in its `ARCHITECTURE.md` — proven on human-authored roadmaps before any
+distillation reuses it — so the bootstrap's output speaks the same language as the
+artifacts a harnessed project already feeds the store.
+
 ## Three ways to serve a code-only project
 
 - **Standing code profile** — code is distilled into the store on every snapshot.

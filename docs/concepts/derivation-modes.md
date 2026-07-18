@@ -28,7 +28,9 @@ The change-and-outcome signal — the commits and their diffs — is always pres
 regardless of richness; it is the floor. What richness moves is (a) whether the
 *semantic* snapshot is read from code or from artifacts, and (b) how strongly
 *episodic* intent anchors to a curated statement of purpose rather than an inferred
-one.
+one. The inferred rungs can themselves be lifted — the change distilled once, at
+ingest, into a spec-shaped intent statement — see
+[intent distillation](intent-distillation.md).
 
 ## The taxonomy, honestly: three trajectories on the spectrum, not four modes
 

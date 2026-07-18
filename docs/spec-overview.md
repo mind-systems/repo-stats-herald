@@ -47,6 +47,14 @@ Herald would have sent along the way.
 
 ## Design spine
 
+- **Development unpacks meaning; Herald packs it back.** On its way to shipping, a
+  feature is progressively unpacked — an idea into a roadmap, roadmap lines into task
+  specs, specs into code, each step adding mechanism. Herald climbs the same ladder in
+  reverse: commits fold back into intents, intents into features, features into
+  direction (see [architecture](architecture.md#the-unit-of-understanding-intent--change--outcome)).
+  Packing is deliberately lossy — mechanism is discarded, delivered value kept — and
+  the best packing is none at all: where a rung's written form survives (a roadmap
+  task, a spec), Herald anchors to it instead of re-deriving it.
 - **Herald narrates from an understanding of each project.** It keeps a
   standing [knowledge model](spec/understanding.md#per-project-knowledge-model) of every project — features,
   direction, built-vs-remaining — built from curated artifacts, and a
