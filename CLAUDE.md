@@ -1,6 +1,4 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. What the service does and how each part behaves is specified under [docs/spec/](docs/spec-overview.md); this file is how to work in the code.
+What the service does and how each part behaves is specified under [docs/spec/](docs/spec-overview.md); this file is how to work in the code.
 
 ## Status
 
