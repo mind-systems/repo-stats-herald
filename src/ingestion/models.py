@@ -20,3 +20,10 @@ class PushEvent:
     before: str
     after: str
     commits: tuple[PushCommit, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class InstallationEvent:
+    org_id: int
+    repos_added: tuple[str, ...]
+    repos_removed: tuple[str, ...]
