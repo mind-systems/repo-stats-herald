@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     github_app_id: int | None = None
     github_app_private_key_path: str | None = None
     mirror_root: str = "var/mirror"
+    bootstrap_draft_root: str = "bootstrap-drafts"
     canonical_refs: Annotated[dict[str, str], NoDecode] = {}
     github_org_logins: Annotated[dict[int, str], NoDecode] = {}
     postgres_host: str = "localhost"

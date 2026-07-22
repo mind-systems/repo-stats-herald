@@ -45,3 +45,6 @@ htmlcov/
 # Eval outputs (generated, not tracked)
 evals/out/*
 !evals/out/.gitkeep
+
+# Bootstrap drafts (generated, LLM-unreviewed, never tracked)
+bootstrap-drafts/
