@@ -1,3 +1,4 @@
+import json
 from functools import lru_cache
 from typing import Annotated
 
@@ -20,6 +21,8 @@ class Settings(BaseSettings):
     github_app_id: int | None = None
     github_app_private_key_path: str | None = None
     mirror_root: str = "var/mirror"
+    canonical_refs: Annotated[dict[str, str], NoDecode] = {}
+    github_org_logins: Annotated[dict[int, str], NoDecode] = {}
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_user: str = "herald_username"
@@ -33,6 +36,15 @@ class Settings(BaseSettings):
             return value
         tokens = str(value).split(",")
         return frozenset(int(token) for token in (t.strip() for t in tokens) if token)
+
+    @field_validator("canonical_refs", "github_org_logins", mode="before")
+    @classmethod
+    def _parse_json_dict(cls, value: object) -> object:
+        if isinstance(value, dict):
+            return value
+        if not value:
+            return {}
+        return json.loads(value)
 
     @property
     def postgres_dsn(self) -> str:

@@ -67,7 +67,9 @@ def _parse_installation_event(event_name: str, body: bytes) -> InstallationEvent
 
 
 @router.post("/webhooks/github")
-async def receive_github_webhook(request: fastapi.Request) -> Response:
+async def receive_github_webhook(
+    request: fastapi.Request, background_tasks: fastapi.BackgroundTasks
+) -> Response:
     body = await request.body()
     settings = get_settings()
     header = request.headers.get("X-Hub-Signature-256")
@@ -81,6 +83,11 @@ async def receive_github_webhook(request: fastapi.Request) -> Response:
         if event.org_id not in settings.serve_allowlist:
             logger.info("org not served: org_id=%s repo=%s", event.org_id, event.repo)
             return Response(status_code=204)
+
+        knowledge_sync = getattr(request.app.state, "knowledge_sync", None)
+        if knowledge_sync is not None:
+            background_tasks.add_task(knowledge_sync.on_push, event)
+
         return JSONResponse(content=jsonable_encoder(event))
 
     if event_name in ("installation", "installation_repositories"):

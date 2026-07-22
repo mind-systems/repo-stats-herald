@@ -33,7 +33,12 @@ class ArtifactIndexer:
             logger.debug("skipping %s:%s — not selected", repo, path)
             return
 
-        text = (tree / path).read_text(encoding="utf-8")
+        try:
+            text = (tree / path).read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            logger.debug("skipping %s:%s — not valid UTF-8", repo, path)
+            return
+
         chunks = chunk_markdown(text)
         embeddings = await self._embedder.embed(chunks)
         items = [

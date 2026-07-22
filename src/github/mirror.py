@@ -1,6 +1,7 @@
 import base64
 import contextlib
 import os
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -21,18 +22,17 @@ class RepoMirror:
     for its repo (see the note on `tree` for why reclamation is deferred
     rather than immediate).
 
-    Composition-root assembly (not wired yet — no caller exists above this
-    task): read `Settings`, load the App private key PEM from
-    `github_app_private_key_path`, build `GitHubAppAuth(github_app_id, pem)`,
-    then `RepoMirror(Path(mirror_root), auth, clone_source=<builds the repo's
-    HTTPS clone URL>)`. Before that first construction, the consuming task
-    must assert `github_app_id`, `github_app_private_key_path`, and
-    `mirror_root` are actually set — `Settings`' defaults only keep
-    `Settings()` constructible for the webhook test suite; without this
-    assertion a misconfigured deployment would surface as a `None`-typed
-    error deep inside token minting instead of a clear boot failure. That
-    same startup path should also sweep `{mirror_root}/worktrees` (remove
-    every entry, then `git worktree prune` per repo) — `tree()`'s deferred
+    Composition-root assembly (`src/main.py`'s `lifespan`, gated on the
+    GitHub-App + mirror settings being present): read `Settings`, load the
+    App private key PEM from `github_app_private_key_path`, build
+    `GitHubAppAuth(github_app_id, pem)`, then `RepoMirror(Path(mirror_root),
+    auth, clone_source=<builds the repo's HTTPS clone URL>)`. `Settings`'
+    defaults only keep `Settings()` constructible for the webhook test suite
+    (which builds `TestClient(app)` without running `lifespan`); the root
+    itself gates assembly on the required settings and logs a warning
+    instead when they are absent, rather than surfacing a `None`-typed error
+    deep inside token minting. The same startup path calls
+    `sweep_worktrees()` once before any `ensure()` — `tree()`'s deferred
     reclamation lives in an in-memory list, so worktrees finished right
     before a crash/restart are never picked up by `ensure()` and would
     otherwise leak on disk indefinitely.
@@ -55,6 +55,41 @@ class RepoMirror:
 
     def _worktrees_root(self) -> Path:
         return self._mirror_root / "worktrees"
+
+    def default_branch(self, repo: str) -> str:
+        """Return `repo`'s default branch, read from its bare mirror's `HEAD`.
+
+        The caller must have run `ensure(repo, ...)` first so the bare clone
+        exists.
+        """
+        result = subprocess.run(
+            ["git", "symbolic-ref", "--short", "HEAD"],
+            cwd=self._bare_path(repo),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    def sweep_worktrees(self) -> None:
+        """Startup reclamation: removes every entry under
+        `{mirror_root}/worktrees` and runs `git worktree prune` per bare
+        repo. `tree()`'s deferred reclamation lives in an in-memory list, so
+        worktrees finished right before a crash/restart are never picked up
+        by `ensure()` and would otherwise leak on disk indefinitely — this
+        sweep is the consuming task's guard against that, run once at
+        startup before any `ensure()` call.
+        """
+        worktrees_root = self._worktrees_root()
+        if worktrees_root.exists():
+            for entry in worktrees_root.iterdir():
+                shutil.rmtree(entry, ignore_errors=True)
+
+        if not self._mirror_root.exists():
+            return
+        for bare_path in self._mirror_root.glob("*.git"):
+            with contextlib.suppress(subprocess.CalledProcessError):
+                self._run_git("worktree", "prune", cwd=bare_path)
 
     def ensure(self, repo: str, org_id: int) -> None:
         self._mirror_root.mkdir(parents=True, exist_ok=True)
