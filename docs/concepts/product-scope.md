@@ -28,7 +28,7 @@ pushed repository. So membership is **declared**, not guessed.
 | Level | What it is | Role |
 |-------|-----------|------|
 | **Tenant** | the account that owns the work and pays for it | the ownership root; links one or more GitHub organizations |
-| **Product** | a configured set of repositories that reads as one thing | the retrieval and narration scope — replaces "org-wide" |
+| **Product** | a configured set of repositories that reads as one thing | the retrieval, narration, and delivery scope — replaces "org-wide" |
 | **Repository** | one git repo, with its two memories | the unit of the mirror and the stores; unchanged |
 
 The GitHub **organization / installation** is an external identity axis, mapped onto a tenant —
@@ -48,8 +48,33 @@ like every other, never inferred inline:
 
 A product is the scope a query and a narration run over: retrieval spans the product's
 repositories, and cross-repository framing is *within-product* by default. A repository belongs
-to exactly one product; a repository with no product declared is its own product of one —
-preserving today's per-repo behavior as the floor.
+to exactly one product; a repository not yet assigned to any product is *dormant* — reachable but
+not narrated — until it is composed into one (see [activation](#activation-nothing-runs-until-a-product-is-composed)).
+
+## A product carries its own delivery channel
+
+Delivery is scoped to the product, not the organization. Each product names its own Telegram
+channel, so two products under one organization narrate to two channels instead of merging into
+one. The resolver today keys the channel by organization (see
+[configuration.md](../spec/configuration.md#what-the-resolver-holds)); the product scope moves that
+key onto the product, and a product with no channel set is simply not delivered.
+
+## Activation: nothing runs until a product is composed
+
+Being installed and served is necessary but not sufficient. A repository Herald can reach sits
+**dormant** — mirrored and reachable, but not indexed or narrated — until it is composed into a
+product. Composition is the activation signal, and the onboarding sequence is ordered by it:
+
+1. **Authenticate** — the owner signs in with GitHub (OAuth); GitHub is the identity provider.
+2. **Install** — the Herald App is installed on the chosen repositories, making them reachable.
+3. **Compose** — available repositories are grouped into products, each given its channel and
+   its languages.
+4. **Then, and only then** — Herald indexes, narrates, and delivers for those products.
+
+This inverts the default from "serve every repository in a served organization" to "serve only
+repositories composed into a product," and it generalizes the operator
+[serve-allowlist](../spec/ingestion.md#who-herald-serves) into tenant self-service: a tenant
+activates its own work by composing products, not an operator adding an organization id by hand.
 
 ## Membership and dependency are two relations
 

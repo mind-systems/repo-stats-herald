@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     postgres_user: str = "herald_username"
     postgres_password: str = "herald_password"
     postgres_db: str = "herald_database"
+    project_edges: Annotated[tuple[tuple[str, str, str], ...], NoDecode] = ()
 
     @field_validator("serve_allowlist", mode="before")
     @classmethod
@@ -46,6 +47,28 @@ class Settings(BaseSettings):
         if not value:
             return {}
         return json.loads(value)
+
+    @field_validator("project_edges", mode="before")
+    @classmethod
+    def _parse_project_edges(cls, value: object) -> object:
+        if isinstance(value, (tuple, list)):
+            return tuple(value)
+        if not value:
+            return ()
+
+        triples = []
+        for token in str(value).split(","):
+            token = token.strip()
+            if not token:
+                continue
+            if ">" not in token or ":" not in token:
+                raise ValueError(
+                    f"malformed PROJECT_EDGES token {token!r}: expected 'from>to:kind'"
+                )
+            from_repo, rest = token.split(">", 1)
+            to_repo, kind = rest.split(":", 1)
+            triples.append((from_repo.strip(), to_repo.strip(), kind.strip().upper()))
+        return tuple(triples)
 
     @property
     def postgres_dsn(self) -> str:

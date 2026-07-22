@@ -12,6 +12,8 @@ from src.episodic.linked_change import LinkedChangeResolver
 from src.episodic.store import PgEpisodicStore
 from src.github.app_auth import GitHubAppAuth
 from src.github.mirror import RepoMirror
+from src.graph.models import Edge, EdgeKind
+from src.graph.store import PgProjectGraph
 from src.ingestion.router import router as ingestion_router
 from src.ingestion.served_repos import ServedRepoStore
 from src.ingestion.writer import EpisodicWriter
@@ -24,6 +26,7 @@ from src.llm.embedder import OllamaEmbedder
 SCHEMA_PATH = Path(__file__).resolve().parent / "ingestion" / "schema.sql"
 KNOWLEDGE_SCHEMA_PATH = Path(__file__).resolve().parent / "knowledge" / "schema.sql"
 EPISODIC_SCHEMA_PATH = Path(__file__).resolve().parent / "episodic" / "schema.sql"
+GRAPH_SCHEMA_PATH = Path(__file__).resolve().parent / "graph" / "schema.sql"
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +39,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await conn.execute(SCHEMA_PATH.read_text())
         await conn.execute(KNOWLEDGE_SCHEMA_PATH.read_text())
         await conn.execute(EPISODIC_SCHEMA_PATH.read_text())
+        await conn.execute(GRAPH_SCHEMA_PATH.read_text())
     app.state.served_repo_store = ServedRepoStore(pool)
+
+    graph = PgProjectGraph(pool)
+    app.state.project_graph = graph
+    for from_repo, to_repo, kind in settings.project_edges:
+        await graph.add_edge(
+            Edge(from_repo=from_repo, to_repo=to_repo, kind=EdgeKind(kind), source="config")
+        )
+    logger.info("loaded %d config project edges", len(settings.project_edges))
 
     if (
         settings.github_app_id is not None

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import asyncpg
 
-from src.graph.models import Edge
+from src.graph.models import Edge, EdgeKind
 
 
 class ProjectGraph(ABC):
@@ -38,13 +38,51 @@ class PgProjectGraph(ProjectGraph):
         self._pool = pool
 
     async def add_edge(self, edge: Edge) -> None:
-        raise NotImplementedError
+        if edge.source == "config":
+            conflict_clause = "DO UPDATE SET source = EXCLUDED.source"
+        else:
+            conflict_clause = "DO NOTHING"
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                f"""
+                INSERT INTO project_edges (from_repo, to_repo, kind, source)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (from_repo, to_repo, kind) {conflict_clause}
+                """,
+                edge.from_repo,
+                edge.to_repo,
+                edge.kind.value,
+                edge.source,
+            )
 
     async def edges_from(self, repo: str) -> list[Edge]:
-        raise NotImplementedError
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT from_repo, to_repo, kind, source FROM project_edges WHERE from_repo = $1",
+                repo,
+            )
+        return [
+            Edge(
+                from_repo=row["from_repo"],
+                to_repo=row["to_repo"],
+                kind=EdgeKind(row["kind"]),
+                source=row["source"],
+            )
+            for row in rows
+        ]
 
     async def neighbors(self, repo: str) -> list[str]:
-        raise NotImplementedError
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT to_repo FROM project_edges WHERE from_repo = $1 ORDER BY to_repo",
+                repo,
+            )
+        return [row["to_repo"] for row in rows]
 
     async def remove_seed_edges(self, from_repo: str) -> None:
-        raise NotImplementedError
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM project_edges WHERE from_repo = $1 AND source = 'seed'",
+                from_repo,
+            )
