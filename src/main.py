@@ -5,12 +5,16 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
+from src.commits.collector import GitCommitCollector
 from src.core.config import get_settings
 from src.core.db import create_pool
+from src.episodic.linked_change import LinkedChangeResolver
+from src.episodic.store import PgEpisodicStore
 from src.github.app_auth import GitHubAppAuth
 from src.github.mirror import RepoMirror
 from src.ingestion.router import router as ingestion_router
 from src.ingestion.served_repos import ServedRepoStore
+from src.ingestion.writer import EpisodicWriter
 from src.knowledge.indexer import ArtifactIndexer
 from src.knowledge.source_strategy import AiFactorySourceStrategy
 from src.knowledge.store import PgVectorStore
@@ -19,6 +23,7 @@ from src.llm.embedder import OllamaEmbedder
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "ingestion" / "schema.sql"
 KNOWLEDGE_SCHEMA_PATH = Path(__file__).resolve().parent / "knowledge" / "schema.sql"
+EPISODIC_SCHEMA_PATH = Path(__file__).resolve().parent / "episodic" / "schema.sql"
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with pool.acquire() as conn:
         await conn.execute(SCHEMA_PATH.read_text())
         await conn.execute(KNOWLEDGE_SCHEMA_PATH.read_text())
+        await conn.execute(EPISODIC_SCHEMA_PATH.read_text())
     app.state.served_repo_store = ServedRepoStore(pool)
 
     if (
@@ -56,6 +62,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         mirror.sweep_worktrees()
 
         app.state.knowledge_sync = KnowledgeSync(mirror, indexer, strategy, settings.canonical_refs)
+
+        episodic_store = PgEpisodicStore(pool)
+        collector = GitCommitCollector()
+        resolver = LinkedChangeResolver(collector, strategy)
+        app.state.episodic_writer = EpisodicWriter(mirror, resolver, embedder, episodic_store, collector)
     else:
         logger.warning("canonical-ref sync disabled: GitHub App, mirror, or org-login settings absent")
 

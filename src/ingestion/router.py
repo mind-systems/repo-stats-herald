@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import logging
+from collections.abc import Awaitable, Callable
 
 import fastapi
 from fastapi import APIRouter, Response
@@ -13,6 +14,16 @@ from src.ingestion.models import InstallationEvent, PushCommit, PushEvent
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def _run_isolated(label: str, task: Callable[[PushEvent], Awaitable[None]], event: PushEvent) -> None:
+    """Runs one push background task in isolation, so its failure cannot abort
+    a sibling task queued on the same `BackgroundTasks` (Starlette runs them
+    sequentially and stops at the first exception)."""
+    try:
+        await task(event)
+    except Exception:
+        logger.exception("push background task failed: %s", label)
 
 
 def _verify_signature(body: bytes, header: str | None, secret: str) -> bool:
@@ -86,7 +97,11 @@ async def receive_github_webhook(
 
         knowledge_sync = getattr(request.app.state, "knowledge_sync", None)
         if knowledge_sync is not None:
-            background_tasks.add_task(knowledge_sync.on_push, event)
+            background_tasks.add_task(_run_isolated, "knowledge_sync.on_push", knowledge_sync.on_push, event)
+
+        episodic_writer = getattr(request.app.state, "episodic_writer", None)
+        if episodic_writer is not None:
+            background_tasks.add_task(_run_isolated, "episodic_writer.write", episodic_writer.write, event)
 
         return JSONResponse(content=jsonable_encoder(event))
 

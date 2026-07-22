@@ -1,5 +1,6 @@
 import re
 import subprocess
+from datetime import datetime
 
 from src.commits.models import Commit, CommitContext
 
@@ -26,6 +27,15 @@ class GitCommitCollector:
         branch = self._current_branch(repo_path)
         commits = self._collect_commits(repo_path, rev_range)
         return CommitContext(repo=repo_path, branch=branch, commits=commits)
+
+    def commit_timestamp(self, repo_path: str, ref: str) -> datetime:
+        result = subprocess.run(
+            [self._git_bin, "-C", repo_path, "show", "-s", "--format=%cI", "--end-of-options", ref],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return datetime.fromisoformat(result.stdout.strip())
 
     def _current_branch(self, repo_path: str) -> str:
         result = subprocess.run(
