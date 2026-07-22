@@ -9,3 +9,10 @@ dependencies = [
     "pyyaml",
     "uvicorn[standard]",
 ]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

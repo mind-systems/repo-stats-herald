@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     ssh_host: str | None = None
     ssh_port: int = 22
     ssh_key: str | None = None
+    github_webhook_secret: str
 
 
 @lru_cache

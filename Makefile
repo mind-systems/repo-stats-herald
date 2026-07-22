@@ -1,13 +1,16 @@
 -include .env.dev
 export
 
-.PHONY: install run tunnel dev eval
+.PHONY: install run tunnel dev eval test
 
 install:
 	uv sync
 
 run:
 	uv run uvicorn src.main:app --reload --port 8000
+
+test:
+	uv run pytest
 
 tunnel:
 	nc -z localhost 11434 || ssh -f -N -i $(SSH_KEY) -p $(SSH_PORT) -L 11434:127.0.0.1:11434 $(SSH_HOST)
