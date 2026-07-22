@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     github_app_id: int | None = None
     github_app_private_key_path: str | None = None
     mirror_root: str = "var/mirror"
+    postgres_host: str = "localhost"
+    postgres_port: int = 5432
+    postgres_user: str = "herald_username"
+    postgres_password: str = "herald_password"
+    postgres_db: str = "herald_database"
 
     @field_validator("serve_allowlist", mode="before")
     @classmethod
@@ -28,6 +33,13 @@ class Settings(BaseSettings):
             return value
         tokens = str(value).split(",")
         return frozenset(int(token) for token in (t.strip() for t in tokens) if token)
+
+    @property
+    def postgres_dsn(self) -> str:
+        return (
+            f"postgresql://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
 
 
 @lru_cache

@@ -41,14 +41,60 @@ class KnowledgeStore(ABC):
 
 
 class PgVectorStore(KnowledgeStore):
+    _DELETE_SQL = "DELETE FROM chunks WHERE repo = $1 AND path = $2"
+
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
     async def upsert(self, repo: str, path: str, items: list[Chunk]) -> None:
-        raise NotImplementedError
+        rows = [
+            (repo, path, index, item.content, item.embedding)
+            for index, item in enumerate(items)
+        ]
+        async with self._pool.acquire() as conn, conn.transaction():
+            await conn.execute(self._DELETE_SQL, repo, path)
+            if rows:
+                await conn.executemany(
+                    """
+                    INSERT INTO chunks (repo, path, chunk_index, content, embedding)
+                    VALUES ($1, $2, $3, $4, $5)
+                    """,
+                    rows,
+                )
 
     async def delete(self, repo: str, path: str) -> None:
-        raise NotImplementedError
+        async with self._pool.acquire() as conn:
+            await conn.execute(self._DELETE_SQL, repo, path)
 
     async def query(self, embedding: list[float], k: int, repo: str | None = None) -> list[Chunk]:
-        raise NotImplementedError
+        if repo is None:
+            sql = """
+                SELECT repo, path, chunk_index, content, embedding
+                FROM chunks
+                ORDER BY embedding <=> $1
+                LIMIT $2
+                """
+            params = (embedding, k)
+        else:
+            sql = """
+                SELECT repo, path, chunk_index, content, embedding
+                FROM chunks
+                WHERE repo = $1
+                ORDER BY embedding <=> $2
+                LIMIT $3
+                """
+            params = (repo, embedding, k)
+
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(sql, *params)
+
+        return [
+            Chunk(
+                content=row["content"],
+                embedding=row["embedding"],
+                repo=row["repo"],
+                path=row["path"],
+                chunk_index=row["chunk_index"],
+            )
+            for row in rows
+        ]
