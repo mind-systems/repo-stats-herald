@@ -51,6 +51,7 @@ Connection params live in `.env.dev` (`POSTGRES_*`); see `.env.example`. In prod
 | `src/core/` | Cross-cutting infra — `Settings` (pydantic-settings) + `get_settings()`; `create_pool()` (asyncpg pool with the pgvector `vector` codec) |
 | `src/llm/` | Model-agnostic LLM boundary — `LLMClient` (ABC) + `OllamaClient` (httpx) |
 | `src/knowledge/` | `chunks` pgvector schema (`schema.sql`) + `Chunk` value object + `KnowledgeStore` (ABC) / `PgVectorStore` |
+| `src/episodic/` | `episodic_entries` pgvector schema (`schema.sql`, append-only) + `EpisodicEntry` value object + `EpisodicStore` (ABC) / `PgEpisodicStore` |
 | `src/commits/` | `Commit` / `CommitContext` value objects + `GitCommitCollector` (read-only `git log`) |
 | `src/summarization/` | `PromptBuilder` (prompt text) + `Summarizer` (orchestration) |
 | `scripts/` | Composition-root entrypoints for offline runs (`summarize_range`, `eval`) |
