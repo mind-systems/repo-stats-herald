@@ -3,6 +3,7 @@ name = "repo-stats-herald"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "asyncpg",
     "fastapi",
     "httpx",
     "pydantic-settings>=2.14.2",
@@ -13,8 +14,9 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest"]
+dev = ["pytest", "pytest-asyncio"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+asyncio_mode = "auto"
