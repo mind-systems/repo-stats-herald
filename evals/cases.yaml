@@ -10,3 +10,16 @@ cases:
     repo: .
     range: HEAD~3..HEAD
     lang: en
+
+  # `root` points at a local checkout of the Tradeoxy monorepo's
+  # tradeoxy_core sub-project — the code-only unit whose sources live under
+  # a top-level src/, matching CodeSourceStrategy's root-anchored prefixes
+  # (the monorepo root itself has no top-level src/ and carries its own
+  # .ai-factory/, so it selects nothing). `make eval` writes
+  # evals/out/tradeoxy-features.md; the comparison reference
+  # evals/reference/tradeoxy-features.md is user-authored — never
+  # fabricated by the implementer, same discipline as the summarization eval.
+  - name: tradeoxy-features
+    type: distill
+    repo: tradeoxy-core
+    root: /Users/max/projects/tradeoxy/tradeoxy_core

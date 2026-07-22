@@ -24,6 +24,8 @@ import yaml
 
 from src.commits.collector import GitCommitCollector
 from src.core.config import get_settings
+from src.knowledge.code_distiller import CodeDistiller
+from src.knowledge.code_source_strategy import CodeSourceStrategy
 from src.llm.client import OllamaClient
 from src.summarization.prompt import PromptBuilder
 from src.summarization.service import Summarizer
@@ -65,6 +67,29 @@ class SummaryCaseHandler(CaseHandler):
     async def run(self, inputs: dict) -> str:
         ctx = self._collector.collect(inputs["repo"], inputs["range"])
         return await self._summarizer.summarize(ctx, inputs["lang"])
+
+
+class DistillCaseHandler(CaseHandler):
+    """Runs the `distill` case type through the production code-distiller
+    flow, reading a local checkout at `inputs["root"]` in place of a mirror
+    tree — the same offline-local-tree substitution `summary` makes for git
+    via `repo: "."`."""
+
+    def __init__(self, distiller: CodeDistiller, strategy: CodeSourceStrategy) -> None:
+        self._distiller = distiller
+        self._strategy = strategy
+
+    async def run(self, inputs: dict) -> str:
+        root = Path(inputs["root"])
+        selected = []
+        for path in root.rglob("*"):
+            if not path.is_file() or ".git" in path.parts:
+                continue
+            rel = path.relative_to(root).as_posix()
+            if self._strategy.selects(rel):
+                selected.append(rel)
+
+        return await self._distiller.distill(inputs["repo"], selected, root)
 
 
 class EvalRunner:
@@ -111,8 +136,12 @@ def main() -> None:
         OllamaClient(settings.ollama_url, settings.ollama_model, settings.ollama_api_key),
         PromptBuilder(),
     )
+    distiller = CodeDistiller(
+        OllamaClient(settings.ollama_url, settings.ollama_model, settings.ollama_api_key)
+    )
     handlers: dict[str, CaseHandler] = {
         "summary": SummaryCaseHandler(summarizer, collector),
+        "distill": DistillCaseHandler(distiller, CodeSourceStrategy()),
     }
     runner = EvalRunner(handlers)
 

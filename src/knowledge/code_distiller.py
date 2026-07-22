@@ -1,6 +1,11 @@
+import logging
+import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from src.llm.client import LLMClient
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -11,6 +16,42 @@ class CodeUnit:
 
     module: str
     paths: tuple[str, ...]
+
+
+# The distillation rubric — copied verbatim from "What counts as a feature —
+# the distillation rubric" (see docs/concepts/code-derived-understanding.md).
+# The implementation authors none of its own criteria here.
+_DISCRIMINATOR = (
+    "Discriminator: could you write an end-to-end test for this that didn't exist "
+    "before? Yes — it is a feature: any verifiable interaction counts (user-to-system, "
+    "system-to-system, system-to-external-service, or an internal subsystem with its "
+    "own behaviour contract). No — it is internal (a refactor, a cleanup, plumbing) "
+    "and must stay out of the description."
+)
+
+_NAMING = (
+    "Naming: name each feature in 2-5 words from the operator's perspective — what "
+    "the system can do, never how it is built. Module and directory names must never "
+    "become feature names. Prefer fewer, larger cross-cutting features over one "
+    "feature per module."
+)
+
+_GENRE = (
+    "Genre: write present-tense delivered behaviour — state what the project does, "
+    "never how it came to be. Do not write in a history or process voice "
+    '("was added", "was replaced", "previously", "this milestone"). Do not dump '
+    'symbols or mechanism ("class X has methods Y, Z", call-chain listings).'
+)
+
+_PROMPT_TEMPLATE = (
+    "You are distilling the source code of module {module!r} into a feature-level "
+    "description.\n\n"
+    "{discriminator}\n\n"
+    "{naming}\n\n"
+    "{genre}\n\n"
+    "Code:\n{code}\n\n"
+    "Write the feature description now."
+)
 
 
 class CodeDistiller:
@@ -25,17 +66,41 @@ class CodeDistiller:
     def __init__(self, llm: LLMClient) -> None:
         self._llm = llm
 
-    async def distill(self, repo: str, paths: list[str]) -> str:
-        """Distill `paths` from `repo` into one composed description.
+    async def distill(self, repo: str, paths: list[str], tree: Path) -> str:
+        """Distill `paths` from `repo`'s mirror `tree` into one composed
+        description.
 
-        The eventual flow: group `paths` into bounded `CodeUnit`s via
-        `group_units`, read and prompt the injected `LLMClient` once per
-        unit from the repo's mirror, then join the per-unit descriptions
-        with `compose`. Per-unit LLM-output quality is out of scope here —
-        that is the follow-up task's concern; this method only orchestrates
-        the bounded-prompt shape.
+        Groups `paths` into bounded `CodeUnit`s via `group_units`, reads each
+        unit's files from `tree` (skipping any path that isn't valid UTF-8),
+        prompts the injected `LLMClient` once per unit with content to
+        distill, then joins the per-unit descriptions with `compose`. A unit
+        with no readable content issues no LLM call.
         """
-        raise NotImplementedError
+        units = self.group_units(paths)
+
+        unit_texts: list[str] = []
+        for unit in units:
+            file_blobs = []
+            for path in unit.paths:
+                try:
+                    text = (tree / path).read_text(encoding="utf-8")
+                except UnicodeDecodeError:
+                    logger.debug("skipping %s:%s — not valid UTF-8", repo, path)
+                    continue
+                file_blobs.append(f"# {path}\n{text}")
+
+            if not file_blobs:
+                logger.debug(
+                    "skipping unit %s:%s — no readable content", repo, unit.module
+                )
+                continue
+
+            code = "\n\n".join(file_blobs)
+            prompt = self._build_prompt(unit, code)
+            desc = await self._llm.generate(prompt)
+            unit_texts.append(desc)
+
+        return self.compose(unit_texts)
 
     def group_units(self, paths: list[str]) -> list[CodeUnit]:
         """Group `paths` into bounded `CodeUnit`s, one per module.
@@ -50,7 +115,15 @@ class CodeDistiller:
         within a unit are sorted ascending — a deterministic order that
         downstream composition relies on.
         """
-        raise NotImplementedError
+        by_module: dict[str, list[str]] = {}
+        for path in paths:
+            module = os.path.dirname(path)
+            by_module.setdefault(module, []).append(path)
+
+        return [
+            CodeUnit(module=module, paths=tuple(sorted(by_module[module])))
+            for module in sorted(by_module)
+        ]
 
     def compose(self, unit_texts: list[str]) -> str:
         """Concatenate per-unit description strings, in the given order,
@@ -61,4 +134,13 @@ class CodeDistiller:
         the order `group_units` returned them, so the composed result is
         stable across runs regardless of the original path order.
         """
-        raise NotImplementedError
+        return "\n\n".join(unit_texts)
+
+    def _build_prompt(self, unit: CodeUnit, code: str) -> str:
+        return _PROMPT_TEMPLATE.format(
+            module=unit.module,
+            discriminator=_DISCRIMINATOR,
+            naming=_NAMING,
+            genre=_GENRE,
+            code=code,
+        )
