@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     ssh_key: str | None = None
     github_webhook_secret: str
     serve_allowlist: Annotated[frozenset[int], NoDecode] = frozenset()
+    github_app_id: int | None = None
+    github_app_private_key_path: str | None = None
+    mirror_root: str = "var/mirror"
 
     @field_validator("serve_allowlist", mode="before")
     @classmethod
