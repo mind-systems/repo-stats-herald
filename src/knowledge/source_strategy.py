@@ -30,5 +30,16 @@ class AiFactorySourceStrategy(SourceStrategy):
     now, and 5.1's `CodeSourceStrategy(SourceStrategy)` extends it later.
     """
 
+    _ROOT_ONLY = {"CLAUDE.md", "AGENTS.md"}
+    _ROOT_OR_AI_FACTORY = {
+        "ARCHITECTURE.md",
+        "ROADMAP.md",
+        ".ai-factory/ARCHITECTURE.md",
+        ".ai-factory/ROADMAP.md",
+    }
+    _PREFIXES = (".ai-factory/specs/", "docs/")
+
     def selects(self, path: str) -> bool:
-        raise NotImplementedError
+        if path in self._ROOT_ONLY or path in self._ROOT_OR_AI_FACTORY:
+            return True
+        return path.startswith(self._PREFIXES)
