@@ -1,10 +1,12 @@
 cases:
   - name: herald-recent
+    type: summary
     repo: .
     range: HEAD~3..HEAD
     lang: ru
 
   - name: herald-recent-en
+    type: summary
     repo: .
     range: HEAD~3..HEAD
     lang: en
