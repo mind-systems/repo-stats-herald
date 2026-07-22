@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:14b-instruct-q4_K_M"
+    embed_model: str = "nomic-embed-text"
     ollama_api_key: str | None = None
     ssh_host: str | None = None
     ssh_port: int = 22
