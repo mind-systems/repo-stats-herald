@@ -34,7 +34,21 @@ class PgEpisodicStore(EpisodicStore):
         self._pool = pool
 
     async def append(self, entry: EpisodicEntry) -> None:
-        raise NotImplementedError
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO episodic_entries
+                    (repo, org_id, completed_tasks, commit_shas, content, embedding, changed_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                """,
+                entry.repo,
+                entry.org_id,
+                list(entry.completed_tasks),
+                list(entry.commit_shas),
+                entry.content,
+                entry.embedding,
+                entry.changed_at,
+            )
 
     async def query(
         self,
@@ -44,4 +58,47 @@ class PgEpisodicStore(EpisodicStore):
         since: datetime | None = None,
         until: datetime | None = None,
     ) -> list[EpisodicEntry]:
-        raise NotImplementedError
+        clauses = []
+        params: list[object] = []
+
+        if repo is not None:
+            params.append(repo)
+            clauses.append(f"repo = ${len(params)}")
+        if since is not None:
+            params.append(since)
+            clauses.append(f"changed_at >= ${len(params)}")
+        if until is not None:
+            params.append(until)
+            clauses.append(f"changed_at <= ${len(params)}")
+
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+        params.append(embedding)
+        order_param = len(params)
+        params.append(k)
+        limit_param = len(params)
+
+        sql = f"""
+            SELECT repo, org_id, completed_tasks, commit_shas, content, embedding, changed_at, recorded_at
+            FROM episodic_entries
+            {where}
+            ORDER BY embedding <=> ${order_param}
+            LIMIT ${limit_param}
+            """
+
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(sql, *params)
+
+        return [
+            EpisodicEntry(
+                repo=row["repo"],
+                org_id=row["org_id"],
+                completed_tasks=tuple(row["completed_tasks"]),
+                commit_shas=tuple(row["commit_shas"]),
+                content=row["content"],
+                embedding=row["embedding"],
+                changed_at=row["changed_at"],
+                recorded_at=row["recorded_at"],
+            )
+            for row in rows
+        ]
