@@ -33,3 +33,4 @@ Define the `RepoMirror`/`GitHubAppAuth` surface and pin its isolation + single-f
 - The concurrency test suite added here is red against the stubs (fails only because there's no logic yet — no import errors, no fixture errors).
 - Compiles and boots; the stub surface is reachable and raises for any call.
 - Each of the three pinned scenarios (isolation, single-flight token, safe cleanup) has a corresponding red test.
+- The single-flight test **discriminates**: it reliably *fails* a naive per-request mint (one that mints without holding the cache across the mint), not merely passes a correct single-flight implementation — so a later regression to plain per-request caching cannot slip through green. The test forces the concurrent callers to overlap while a mint is in flight; a mint that is instantaneous and unsynchronised does not pin the invariant.
