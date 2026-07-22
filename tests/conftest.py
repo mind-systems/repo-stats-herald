@@ -20,6 +20,7 @@ def webhook_secret_env(monkeypatch: pytest.MonkeyPatch) -> str:
     """Set GITHUB_WEBHOOK_SECRET and clear get_settings' cache so 2.1.2's
     Settings-backed verification reads the same secret the tests sign with."""
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", TEST_WEBHOOK_SECRET)
+    monkeypatch.setenv("SERVE_ALLOWLIST", str(TEST_ORG_ID))
     get_settings.cache_clear()
     yield TEST_WEBHOOK_SECRET
     get_settings.cache_clear()
