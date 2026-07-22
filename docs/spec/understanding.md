@@ -75,3 +75,5 @@ A repository that declares itself a coordination layer and lists its sub-project
 ### Fallback
 
 A project with no edges — none retrieved, none configured — is narrated on its own. The cross-project layer simply does not activate for it.
+
+The graph relates projects that are already distinct. Grouping several repositories into one **product** that reads as a single thing — and the tenant that owns it — is a forward-looking scope layer above this one; see [product scope](../concepts/product-scope.md).

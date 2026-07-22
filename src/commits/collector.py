@@ -69,6 +69,60 @@ class GitCommitCollector:
             steps.append((before, after))
         return steps
 
+    def changed_paths(self, repo_path: str, before: str, after: str) -> tuple[str, ...]:
+        """List paths changed between `before` and `after`, read-only.
+
+        Runs a two-tree diff (`--no-renames` so rename arrows don't corrupt
+        paths), which does not fail on merge commits. An unknown/unborn ref
+        yields `()` rather than raising, mirroring `first_parent_steps`'
+        no-raise contract. `core.quotepath=false` keeps non-ASCII path bytes
+        literal instead of quoted/octal-escaped, so such paths still match
+        `SourceStrategy.selects` and resolve via `read_blob`.
+        """
+        result = subprocess.run(
+            [
+                self._git_bin,
+                "-c",
+                "core.quotepath=false",
+                "-C",
+                repo_path,
+                "diff",
+                "--name-only",
+                "--no-renames",
+                "--end-of-options",
+                before,
+                after,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return ()
+        return tuple(line for line in result.stdout.splitlines() if line.strip())
+
+    def read_blob(self, repo_path: str, ref: str, path: str) -> str | None:
+        """Read `path`'s blob content at `ref` directly from the object
+        store, or `None` if the path is absent at that ref or its content
+        isn't valid UTF-8.
+
+        Bytes are captured (not `text=True`) and decoded manually: with
+        `text=True`, an invalid-UTF-8 blob would raise inside
+        `subprocess.run` before this method's guard could turn it into
+        `None`.
+        """
+        result = subprocess.run(
+            [self._git_bin, "-C", repo_path, "show", "--end-of-options", f"{ref}:{path}"],
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        try:
+            return result.stdout.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+
     def commit_timestamp(self, repo_path: str, ref: str) -> datetime:
         result = subprocess.run(
             [self._git_bin, "-C", repo_path, "show", "-s", "--format=%cI", "--end-of-options", ref],

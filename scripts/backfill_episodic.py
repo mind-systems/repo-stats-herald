@@ -18,7 +18,10 @@ from src.episodic.linked_change import LinkedChangeResolver
 from src.episodic.store import PgEpisodicStore
 from src.github.app_auth import GitHubAppAuth
 from src.github.mirror import RepoMirror
+from src.knowledge.code_distiller import CodeDistiller
+from src.knowledge.code_source_strategy import CodeSourceStrategy
 from src.knowledge.source_strategy import AiFactorySourceStrategy
+from src.llm.client import OllamaClient
 from src.llm.embedder import OllamaEmbedder
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "src" / "episodic" / "schema.sql"
@@ -56,8 +59,22 @@ async def _run(repo: str, org_id: int) -> None:
             return f"https://github.com/{login}/{repo}.git"
 
         mirror = RepoMirror(Path(settings.mirror_root), auth, clone_source)
+        mirror.sweep_worktrees()
 
-        backfill = EpisodicBackfill(mirror, resolver, embedder, store, collector, settings.canonical_refs)
+        distiller = CodeDistiller(OllamaClient(settings.ollama_url, settings.ollama_model, settings.ollama_api_key))
+        code_strategy = CodeSourceStrategy()
+
+        backfill = EpisodicBackfill(
+            mirror,
+            resolver,
+            embedder,
+            store,
+            collector,
+            settings.canonical_refs,
+            distiller,
+            code_strategy,
+            strategy,
+        )
 
         await backfill.run(repo, org_id)
     finally:
