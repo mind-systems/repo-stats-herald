@@ -28,6 +28,13 @@ class EpisodicStore(ABC):
         key), never on `recorded_at`."""
         ...
 
+    @abstractmethod
+    async def recorded_commit_shas(self, repo: str) -> set[str]:
+        """Return the union of every `commit_shas` element already stored
+        for `repo`, across all entries. Used to skip commits already covered
+        by a prior backfill run or a live push."""
+        ...
+
 
 class PgEpisodicStore(EpisodicStore):
     def __init__(self, pool: asyncpg.Pool) -> None:
@@ -102,3 +109,11 @@ class PgEpisodicStore(EpisodicStore):
             )
             for row in rows
         ]
+
+    async def recorded_commit_shas(self, repo: str) -> set[str]:
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT DISTINCT unnest(commit_shas) AS sha FROM episodic_entries WHERE repo = $1",
+                repo,
+            )
+        return {row["sha"] for row in rows}

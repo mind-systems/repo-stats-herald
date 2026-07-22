@@ -53,6 +53,18 @@ class RepoMirror:
     def _bare_path(self, repo: str) -> Path:
         return self._mirror_root / f"{repo}.git"
 
+    def object_store_path(self, repo: str) -> Path:
+        """Return `repo`'s bare object store path — the read-only entry
+        point for history replay that intentionally bypasses the
+        worktree-per-operation model: blobs are read by SHA (`git show`/`git
+        log`/`git rev-list` against this path), never through a mutable
+        checkout.
+
+        The caller must have run `ensure(repo, ...)` first so the bare
+        clone exists.
+        """
+        return self._bare_path(repo)
+
     def _worktrees_root(self) -> Path:
         return self._mirror_root / "worktrees"
 
