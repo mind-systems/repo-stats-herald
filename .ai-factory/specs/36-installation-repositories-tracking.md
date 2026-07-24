@@ -4,7 +4,7 @@
 
 ## Current state
 
-Task 2.1 (spec 01) branches on `X-GitHub-Event`: `push` is parsed, everything else → `204`. `docs/spec/ingestion.md` ("Onboarding by installation") says Herald tracks the `installation_repositories` event so it learns immediately when a repository is added to or removed from its reach under an "Only select repositories" install — but no handler exists; that event is currently swallowed by the generic non-push `204`. This task sits in Phase 3, not Phase 2 — it needs a durable store for the served-repo set, and Postgres is only provisioned by 3.3.
+Task 2.1 (spec 01) branches on `X-GitHub-Event`: `push` is parsed, everything else → `204`. `docs/behavior/ingestion.md` ("Onboarding by installation") says Herald tracks the `installation_repositories` event so it learns immediately when a repository is added to or removed from its reach under an "Only select repositories" install — but no handler exists; that event is currently swallowed by the generic non-push `204`. This task sits in Phase 3, not Phase 2 — it needs a durable store for the served-repo set, and Postgres is only provisioned by 3.3.
 
 ## Change
 

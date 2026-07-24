@@ -4,7 +4,7 @@
 
 ## Current state
 
-After 2.1–2.2, a served push exists as a `PushEvent`, but nothing turns it into a routing decision. There is no notion of a branch role or a delivery plan. `docs/spec/delivery.md` describes the branch role and the delivery plan; `docs/spec/configuration.md` describes the resolver seam.
+After 2.1–2.2, a served push exists as a `PushEvent`, but nothing turns it into a routing decision. There is no notion of a branch role or a delivery plan. `docs/behavior/delivery.md` describes the branch role and the delivery plan; `docs/behavior/configuration.md` describes the resolver seam.
 
 ## Change
 
@@ -14,7 +14,7 @@ Add a routing feature that resolves a push into a delivery plan, with branch-rol
   - `BranchRole` (`Enum`: `RELEASE`, `STAGING`, `DEV`).
   - `DeliveryPlan` (`branch_role: BranchRole`, `is_release: bool`, `is_prerelease: bool`; the channel field is added by 9.3, the app field (`changelog_base_url`) by Phase 12 — out of scope here).
 - `src/routing/resolver.py`:
-  - `role_for_branch(branch: str) -> BranchRole` — the single classification function: `master`/`main` → `RELEASE`, `staging` → `STAGING`, else `DEV`. The release/staging branch names are module-level constants; the comparison lives only here.
+  - `role_for_branch(branch: str) -> BranchRole` — the single classification function: `master`/`main` → `RELEASE`, `staging` → `STAGING`, else `DEV`. The release/staging branch names are module-level constants; the comparison lives only here. Match is **exact** on the constant names (case-sensitive) — `main-backup` / `staging2` fall to `DEV`, never a prefix or substring match.
   - `DeliveryPlanResolver.resolve(org_id: int, repo: str, branch: str) -> DeliveryPlan` — sets `branch_role` and the `is_release`/`is_prerelease` flags derived from it (release → is_release, staging → is_prerelease). Reads any config it needs through an injected `Settings`/config abstraction, not env.
 - Constructed at the composition root and injected into the delivery path — this is a pure seam, **not** wired into ingestion. Under the current model ingestion is role-agnostic (it drives the event stream → memories regardless of branch); the plan this resolver produces is consumed by the delivery service (9.3) and the paths built on it — the reports (Phase 10) and the release milestones (Phase 11), which are where the branch role actually gates behaviour.
 

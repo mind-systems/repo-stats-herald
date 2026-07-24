@@ -1,4 +1,4 @@
-What the service does and how each part behaves is specified under [docs/spec/](docs/spec-overview.md); this file is how to work in the code.
+What the service does and how each part behaves is specified under [docs/behavior/](docs/behavior-overview.md); this file is how to work in the code.
 
 ## Status
 
@@ -77,15 +77,16 @@ Log through Python's `logging` module with structured output; level via the `LOG
 
 ## Documentation
 
-The **architecture** — the intent→change→outcome model and the seams — is in [docs/architecture.md](docs/architecture.md). The behavioral spec lives in [docs/spec/](docs/spec-overview.md) — start at the overview. Forward-looking design concepts live in [docs/concepts/](docs/concepts/source-strategy-profiles.md).
+The **architecture** — the intent→change→outcome model and the seams — is in [docs/architecture.md](docs/architecture.md). The behavioral spec lives in [docs/behavior/](docs/behavior-overview.md) — start at the overview. Forward-looking design concepts live in [docs/concepts/](docs/concepts/source-strategy-profiles.md).
 
 | Doc | What it covers |
 |-----|-----------------|
-| [Overview](docs/spec-overview.md) | Spec entrance — end-to-end flow, actors, design spine |
-| [Ingestion & Authorization](docs/spec/ingestion.md) | GitHub App webhook, installation as trust boundary, serve-allowlist |
-| [Understanding](docs/spec/understanding.md) | Per-project knowledge model (RAG) + the project graph |
-| [Narration](docs/spec/narration.md) | Feature-level notes, context sources, cross-project ripple, reports, languages |
-| [Conversation](docs/spec/conversation.md) | Asking Herald about a project — questions answered from its memory by the reasoner |
-| [Replay](docs/spec/replay.md) | Backtest over an existing history — simulated time, active-day reports, tag milestones |
-| [Delivery](docs/spec/delivery.md) | Branch role, channels, delivery plan, versioning, internal protocol |
-| [Configuration](docs/spec/configuration.md) | The resolver seam, global settings, database, multi-tenant evolution |
+| [Overview](docs/behavior-overview.md) | Spec entrance — end-to-end flow, actors, design spine |
+| [Ingestion & Authorization](docs/behavior/ingestion.md) | GitHub App webhook, installation as trust boundary, serve-allowlist |
+| [Understanding](docs/behavior/understanding.md) | Per-project knowledge model (RAG) + the project graph |
+| [Coordination-root format](docs/behavior/coordination-root-format.md) | The `CLAUDE.md` shape a coordination root declares — member table, edge kinds, seeding lifecycle |
+| [Narration](docs/behavior/narration.md) | Feature-level notes, context sources, cross-project ripple, reports, languages |
+| [Conversation](docs/behavior/conversation.md) | Asking Herald about a project — questions answered from its memory by the reasoner |
+| [Replay](docs/behavior/replay.md) | Backtest over an existing history — simulated time, active-day reports, tag milestones |
+| [Delivery](docs/behavior/delivery.md) | Branch role, channels, delivery plan, versioning, internal protocol |
+| [Configuration](docs/behavior/configuration.md) | The resolver seam, global settings, database, multi-tenant evolution |

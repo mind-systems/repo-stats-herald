@@ -88,7 +88,7 @@ to its linked chain; the source-strategy profile's change interpretation
 ([source-strategy-profiles.md](source-strategy-profiles.md)) decides when it engages —
 exactly where the profile would otherwise fall through to the commit-message floor. It
 adds no new external seam: the statement is produced through the existing LLM
-boundary. During a history replay (see [replay](../spec/replay.md)) it applies per
+boundary. During a history replay (see [replay](../behavior/replay.md)) it applies per
 historical tree, so the early, unharnessed stretch of a timeline gets distilled
 intents instead of bare messages — the weak-intent gradient of
 [derivation modes](derivation-modes.md) is lifted, not merely recorded.

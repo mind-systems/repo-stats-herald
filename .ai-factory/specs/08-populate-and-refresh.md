@@ -34,6 +34,6 @@ Sync the store to a repo's current artifacts on its **canonical ref only** — s
 ## Verification
 
 - `backfill(repo, org_id)` opens a tree at the canonical ref and populates the store with the repo's current curated artifacts; a query returns relevant chunks.
-- A served push to the canonical ref editing `ROADMAP.md` re-indexes only `ROADMAP.md`; a push adding `docs/spec/x.md` indexes it; a push deleting a doc clears its chunks.
+- A served push to the canonical ref editing `ROADMAP.md` re-indexes only `ROADMAP.md`; a push adding `docs/behavior/x.md` indexes it; a push deleting a doc clears its chunks.
 - A served push to a **non-canonical** branch (e.g. `feature/x`) does no semantic indexing at all, regardless of what files it touches.
 - A push touching only `src/*.py` on the canonical ref opens a tree but does no indexing.

@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the shape of Herald — how a stream of pushes becomes an understanding of each project and a narration of its progress. The topic docs under `docs/spec/` describe *what* each part does; this one describes *how the parts fit* and the seams between them. The code-organization pattern — feature-modular packages, dependency injection, the composition root — lives in `.ai-factory/ARCHITECTURE.md`; this is the domain architecture above it.
+This document describes the shape of Herald — how a stream of pushes becomes an understanding of each project and a narration of its progress. The topic docs under `docs/behavior/` describe *what* each part does; this one describes *how the parts fit* and the seams between them. The code-organization pattern — feature-modular packages, dependency injection, the composition root — lives in `.ai-factory/ARCHITECTURE.md`; this is the domain architecture above it.
 
 ## The unit of understanding: intent → change → outcome
 
@@ -37,7 +37,7 @@ Two engines sit over the stream.
 
 **The derivation engine** replays the stream into understanding. On each event it resolves the change to its linked chain — intent → change → outcome — and updates two memories:
 
-- **Semantic memory** — the [knowledge store](spec/understanding.md#a-per-project-retrieval-store): the standing model of what the project *is now*, its features, direction, and built-vs-remaining state. It is a current projection of the stream, re-derivable at any time.
+- **Semantic memory** — the [knowledge store](behavior/understanding.md#a-per-project-retrieval-store): the standing model of what the project *is now*, its features, direction, and built-vs-remaining state. It is a current projection of the stream, re-derivable at any time.
 - **Episodic memory** — the append-only log of *how* the project changed: each linked change retained in order, so a feature that once existed and was later removed is still recoverable. This is the project's history, not its present.
 
 **The reasoner** reads both memories and turns a query into prose. It answers from what the project is now (semantic) and how it got there (episodic): the reports and release notes Herald broadcasts are one mode; a direct question about the project's past — what a feature was, when it changed, why it was dropped — is another. The reasoner sits behind a model boundary, so a small local model and a larger hosted one are the same seam with a different backend; the memory it reasons over does not change when the model does.
@@ -50,12 +50,12 @@ Today one source-strategy profile ships (the ai-factory default); making the str
 
 A single push moves through the seams in order:
 
-1. **Ingest** verifies the push and turns it into updates — the changed artifacts, the commits, the branch (see [ingestion](spec/ingestion.md)).
-2. The **derivation engine** absorbs the event: the affected source files (per the source strategy) are re-derived into the **knowledge store** (semantic memory), and the resolved change is appended to the **episodic store** (see [knowledge-model](spec/understanding.md#per-project-knowledge-model)).
-3. The change is **resolved to its linked chain** — the intent it serves and the outcome it produces — drawing the intent from the roadmap and design docs the model holds (see [narration](spec/narration.md)).
-4. Where the change touches another project, the **project graph** and retrieval surface the neighbors, and the chain extends across projects (see [project-graph](spec/understanding.md#project-graph), [cross-project narration](spec/narration.md#cross-project-narration)).
+1. **Ingest** verifies the push and turns it into updates — the changed artifacts, the commits, the branch (see [ingestion](behavior/ingestion.md)).
+2. The **derivation engine** absorbs the event: the affected source files (per the source strategy) are re-derived into the **knowledge store** (semantic memory), and the resolved change is appended to the **episodic store** (see [knowledge-model](behavior/understanding.md#per-project-knowledge-model)).
+3. The change is **resolved to its linked chain** — the intent it serves and the outcome it produces — drawing the intent from the roadmap and design docs the model holds (see [narration](behavior/narration.md)).
+4. Where the change touches another project, the **project graph** and retrieval surface the neighbors, and the chain extends across projects (see [project-graph](behavior/understanding.md#project-graph), [cross-project narration](behavior/narration.md#cross-project-narration)).
 5. The **reasoner** turns the resolved chain, its retrieved context from both memories, and the reference set into prose at the level of features and direction — the narration Herald broadcasts, one mode of what it can answer.
-6. **Delivery** routes the prose to the channels the branch role activates (see [delivery](spec/delivery.md)).
+6. **Delivery** routes the prose to the channels the branch role activates (see [delivery](behavior/delivery.md)).
 
 ## Principles
 

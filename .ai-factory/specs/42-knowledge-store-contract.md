@@ -4,7 +4,7 @@
 
 ## Current state
 
-Herald has no database access at all. `Settings` reads Ollama/SSH/GitHub env but not `POSTGRES_*` (present in `.env.dev`/`.env.example`). The knowledge store described in `docs/spec/understanding.md` (per-project retrieval store on pgvector) has no schema, no code, and no test pinning its most dangerous failure mode: a wrong cosine `ORDER BY` direction returns the *farthest* chunks labeled as "nearest" — plausible-looking, no exception.
+Herald has no database access at all. `Settings` reads Ollama/SSH/GitHub env but not `POSTGRES_*` (present in `.env.dev`/`.env.example`). The knowledge store described in `docs/behavior/understanding.md` (per-project retrieval store on pgvector) has no schema, no code, and no test pinning its most dangerous failure mode: a wrong cosine `ORDER BY` direction returns the *farthest* chunks labeled as "nearest" — plausible-looking, no exception.
 
 ## Change
 

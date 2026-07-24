@@ -70,24 +70,32 @@ Both maps live behind the configuration seam so their backing store can evolve w
 
 ## Versioning
 
-Herald assigns a version to every staging and release push and reflects it consistently across the channels that carry a version: the GitHub release tag, the Telegram header, and the internal changelog entry.
+Herald assigns a version to every staging and default-branch push that carries new work, and reflects it consistently across the channels that carry a version: the GitHub release tag, the Telegram header, and the internal changelog entry. A repo with no version tag yet starts at `v0.1.0`.
 
 ### Rules
 
-| Trigger | Version | GitHub artifact |
-|---------|---------|-----------------|
-| Push to the default branch (`master`/`main`) | semver tag, e.g. `v1.2.0` | full release |
-| Push to `staging` | same semver with a `-rc` suffix, e.g. `v1.2.0-rc` | pre-release |
+Every push to `staging` cuts a release candidate: it advances the version from the latest version tag and carries a `-rc` suffix. Successive staging pushes advance it each time — `v1.2.1-rc`, then `v1.2.2-rc` — since each is a distinct test build.
 
-Staging always mirrors the version the release will carry, marked as a release candidate. The two describe the same change set at two stages of its life.
+A push to the default branch (`master`/`main`) is one of two things:
+
+| Case | What it is | Version | GitHub artifact |
+|------|------------|---------|-----------------|
+| Promotion | a change that already rode through staging as a candidate | that candidate's version with the `-rc` dropped — no further bump | full release |
+| Hotfix | a change reaching the default branch with no staging candidate behind it | advanced from the last full release | full release |
+
+A promoted release and its staging candidate are the same version at two stages of its life; the `-rc` marks the candidate stage. A hotfix is genuinely new work on the default branch and advances the version on its own.
+
+### Preserved history on the release branches
+
+Version derivation reads the mirror's tags and history, so it holds `staging` and the default branch to a preserved, append-only history: merges into them are real merges or fast-forwards, and their history is never rewritten — no squash-merge, rebase, amend, or force-push on these branches. Rewriting their history detaches the version tags from the commits they mark, so Herald relies on the repository's branch protection to keep this invariant. Because history is preserved, a promoted change reaches the default branch with its staging candidate's commits intact — that is how Herald tells a promotion from a hotfix.
 
 ### Back-merge detection
 
-A back-merge from the default branch into staging carries commits that are already part of the released history. Herald detects this — the incoming commit SHAs are already present on the default branch — and skips the version bump, so a back-merge does not manufacture a spurious release candidate. Only genuinely new work on staging advances the version.
+A back-merge from the default branch into staging carries commits that are already part of the released history. Herald detects this — the push introduces no new work of its own beyond what the default branch already carries (a merge commit that only pulls the default branch down brings nothing new) — and skips the version bump, so a back-merge does not manufacture a spurious release candidate. Only genuinely new work on staging advances the version.
 
 ### Where the version flows
 
-Once assigned, the version is the same token everywhere it appears: the GitHub release/pre-release tag, the Telegram version header, and the `version` field of the [internal changelog entry](#internal-protocol). The increment step — whether a push advances the major, minor, or patch component — is a configuration point rather than a fixed rule baked into delivery, and is resolved alongside the rest of the delivery plan (see [configuration.md](configuration.md)).
+Once assigned, the version is the same token everywhere it appears: the GitHub release/pre-release tag, the Telegram version header, and the `version` field of the [internal changelog entry](#internal-protocol). The increment step — whether a push advances the major, minor, or patch component — is a configuration point rather than a fixed rule baked into delivery, and is resolved alongside the rest of the delivery plan (see [configuration.md](configuration.md)). Deciding the increment from the significance of the change itself is a future extension, not the current behavior.
 
 ## Internal protocol
 
@@ -113,7 +121,7 @@ Herald calls this before generating notes for the app, so it produces exactly th
 
 ```json
 {
-  "version": "1.2.0",
+  "version": "v1.2.0",
   "environment": "production",
   "summaries": { "ru": "…", "en": "…" },
   "github_url": "https://github.com/org/repo/releases/tag/v1.2.0"
@@ -122,7 +130,7 @@ Herald calls this before generating notes for the app, so it produces exactly th
 
 | Field | Meaning |
 |-------|---------|
-| `version` | The assigned version, e.g. `1.2.0` or `1.2.0-rc`. See [Versioning](#versioning). |
+| `version` | The assigned version, e.g. `v1.2.0` or `v1.2.0-rc` — the same token everywhere it appears. See [Versioning](#versioning). |
 | `environment` | `staging` or `production`. |
 | `summaries` | The release notes as a map from language code to text — one entry for each language the app declared in `config`. No language is privileged and no set is fixed: whatever an app asks for, Herald generates it, through the same localization seam that serves every channel (see [narration.md](narration.md#languages-of-generation)). |
 | `github_url` | Link to the GitHub release or pre-release the entry corresponds to. |

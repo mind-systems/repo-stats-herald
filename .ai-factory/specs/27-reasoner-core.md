@@ -11,9 +11,9 @@
 Implement the real reasoning prompt and wire it to `LLMClient.generate`, using 7.1.1's retrieval mechanics unchanged.
 
 - `src/reasoning/reasoner.py` — `Reasoner.answer`:
-  1. embed `query` via the injected `Embedder` (3.2) — once, per 7.1.1's invariant;
+  1. embed `query` via the injected `Embedder` (3.2) — once, per 7.1.1's invariant (`embed([query])`, take `[0]`);
   2. `KnowledgeStore.query(embedding, k, repo=repo)` (semantic memory, Phase 3);
-  3. `EpisodicStore.query(embedding, k, repo=repo)` (episodic memory, Phase 4);
+  3. `EpisodicStore.query(embedding, k, repo=repo)` (episodic memory, Phase 4 — `since`/`until` left at their `None` defaults: no time window, per the guard below);
   4. assemble a combined context — what the project is now (semantic results) and how it changed (episodic results, each carrying its `changed_at`);
   5. build a reasoning prompt instructing feature-level prose grounded in that context — including 7.1.1's honest no-memory framing when both stores are empty;
   6. `LLMClient.generate(prompt)` (Phase 1).
@@ -21,10 +21,14 @@ Implement the real reasoning prompt and wire it to `LLMClient.generate`, using 7
 ## Files & types
 
 - edit `src/reasoning/reasoner.py` (stub → real `answer` implementation)
+- extend `src/core/config.py` (`Settings.reasoner_k: int = 8`) and document it in `.env.example`; inject it into `Reasoner` at the composition root
 
 ## Guards
 
 - `Reasoner` names no concrete model — it depends on `LLMClient` via constructor DI; swapping local↔hosted is a composition-root choice. Entitlement tiering (Phase 14) adds **zero** reasoner-side code.
+- `k` is one retrieval size read from `Settings` at the composition root and injected (config-once — the reasoner reads no env directly), the **same** value for both store queries: `Settings.reasoner_k`, default `8`.
+- `repo` is the bare `push.repo` key (never `org/repo`) — the same identity both stores are keyed by — passed through unchanged to both queries.
+- **Retrieval + context assembly is a reusable internal helper** — steps 1–4 (embed once, both-store queries, combined context) live in an internal `_gather_context(query, repo)`-style method that `answer` calls before building its prompt; `answer` is only that helper plus the Q&A prompt and `generate`. 7.2 extends this same helper (neighbor folding) and 8.1's `narrate` reuses it — so cross-project reach and narration share one retrieval path, never a copy inlined in `answer`.
 - Episodic retrieval is by similarity only for now — no explicit natural-language "6 months ago" → `since`/`until` parsing; the LLM reasons over the retrieved entries' `changed_at` values as context. Explicit time-window extraction is a later enhancement, not required here.
 - Empty or failed retrieval from either store degrades to answering from whatever is available — never crashes, never silently empty.
 - Turns 7.1.1's tests green — introduces no new retrieval-construction behavior beyond what 7.1.1 already pinned.

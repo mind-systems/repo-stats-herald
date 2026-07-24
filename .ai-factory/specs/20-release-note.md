@@ -1,15 +1,15 @@
 # 11.2.2 — Release note as a report (impl)
 
-**Phase:** 11 — GitHub releases & versioning. Depends on 11.2.1 (`SinceDeployWindow`), 10.1.2 (`SummarySection`), 10.1.1 (`Report`/`report_notes`), 8.2 (the localizer). Produces the release note through the report engine — no standalone builder.
+**Phase:** 11 — GitHub releases & versioning. Depends on 11.2.1 (`SinceDeployWindow(environment: BranchRole)`), 9.1 (`role_for_branch`/`BranchRole`), 10.1.2 (`SummarySection`), 10.1.1 (`Report`/`report_notes`), 8.2 (the localizer). Produces the release note through the report engine — no standalone builder.
 
 ## Current state
 
-The report engine (Phase 10) composes sections over a window and localizes via `Localizer.report_notes`. A release note is the same thing on the release trigger: a **summary of what shipped since the last deploy**. It must not be a second, parallel mechanism (`docs/spec/narration.md#reports` states the engine expresses the release note too). The standalone `ReleaseNote.build`/`LinkedChange.resolve`/`Localizer.notes` path is retired.
+The report engine (Phase 10) composes sections over a window and localizes via `Localizer.report_notes`. A release note is the same thing on the release trigger: a **summary of what shipped since the last deploy**. It must not be a second, parallel mechanism (`docs/behavior/narration.md#reports` states the engine expresses the release note too). The standalone `ReleaseNote.build`/`LinkedChange.resolve`/`Localizer.notes` path is retired.
 
 ## Change
 
-- A release report is `Report([SummarySection], SinceDeployWindow(environment))` — the summary section only (a release is what shipped, not what remains), windowed since the last deploy. Environment from the branch: default branch → release, `staging` → staging.
-- `src/changelog/release.py` — `release_report(repo: str, org_id: int, branch: str) -> Report`: constructs that report. The caller (11.3) renders it per its required languages via `Localizer.report_notes(report, repo, org_id, langs)` (10.3) — one resolution, one set of notes, the pivot/native strategy owned by the localizer.
+- A release report is `Report([SummarySection], SinceDeployWindow(role))` — the summary section only (a release is what shipped, not what remains), windowed since the last deploy. `role` is `role_for_branch(branch)` (9.1), the resulting `BranchRole` passed straight into `SinceDeployWindow` — never an inline `branch == "master"`/`"staging"` comparison here.
+- `src/changelog/release.py` — `release_report(repo: str, org_id: int, branch: str) -> Report`: resolves `role = role_for_branch(branch)` then constructs that report. The caller (11.3) renders it per its required languages via `Localizer.report_notes(report, repo, org_id, langs)` (10.3) — one resolution, one set of notes, the pivot/native strategy owned by the localizer.
 - **Retire** `ReleaseNote.build`; nothing calls `LinkedChange.resolve`/`Localizer.notes` for a release directly.
 
 ## Files & types
@@ -22,6 +22,7 @@ The report engine (Phase 10) composes sections over a window and localizes via `
 - Multi-language is `report_notes`' concern — this task does not call `Reasoner.narrate` or `Localizer.notes` directly, and bakes in no default language set (the caller 11.3 resolves the union).
 - Cross-project "unblocks" comes from the reasoner's reach (7.2) inside `SummarySection` — no separate `NeighborFinder`.
 - No deploy tag → `SinceDeployWindow` spans from the repo start, without crashing.
+- Branch role compared in **one place** — `role_for_branch` (9.1); `release_report` never re-derives `master`/`main`/`staging` inline.
 
 ## Verification
 

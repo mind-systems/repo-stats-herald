@@ -12,7 +12,7 @@ Implement the real per-strategy logic and the LLM-backed translator, using 8.2.1
 
 - `src/reasoning/translator.py` — `LLMTranslator(Translator)`: uses the injected `LLMClient` with a translation prompt that preserves identifiers and proper nouns (feature names, repo names) untranslated.
 - `src/reasoning/localizer.py`:
-  - `PivotLocalizer.notes`: calls `reasoner.narrate(change, pivot)` once, then `translator.translate(..., target_lang)` for every other language in `langs` — reusing 8.2.1's dispatch counting unchanged.
+  - `PivotLocalizer.notes`: calls `reasoner.narrate(change, pivot)` once, then `translator.translate(narration, target_lang=lang, source_lang=pivot)` for every requested language **except the pivot**; the pivot's narration is placed in the result only when the pivot is itself in `langs`. Empty `langs` → empty result, no calls. Reuses 8.2.1's dispatch counting unchanged.
   - `NativeLocalizer.notes`: calls `reasoner.narrate(change, lang)` once per language in `langs` — reusing 8.2.1's dispatch counting unchanged.
 - Wired at the composition root: which `Localizer` implementation (and the pivot language, where `PivotLocalizer` is chosen) is a configuration/tier choice — `PivotLocalizer` is the shipping default.
 
@@ -24,7 +24,7 @@ Implement the real per-strategy logic and the LLM-backed translator, using 8.2.1
 ## Guards
 
 - `Translator` names no concrete backend — a dedicated MT service can replace `LLMTranslator` without touching `Localizer` or its callers.
-- The pivot language is configuration (`PivotLocalizer`'s `pivot`, default `"en"`), never hardcoded in callers.
+- The pivot language is configuration (`PivotLocalizer`'s `pivot`, default `"en"`), never hardcoded in callers, and is passed as `translate`'s `source_lang` — a non-`"en"` pivot is never read as `"en"`.
 - Translation preserves identifiers/proper nouns — a feature or repo name reads the same across languages.
 - `Reasoner.narrate` (8.1) stays the single native-generation primitive — both `PivotLocalizer` and `NativeLocalizer` call it; neither reimplements narration.
 - Turns 8.2.1's tests green — introduces no new dispatch behavior beyond what 8.2.1 already pinned.

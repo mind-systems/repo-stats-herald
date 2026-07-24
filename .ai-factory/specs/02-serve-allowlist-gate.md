@@ -4,7 +4,7 @@
 
 ## Current state
 
-After task 2.1, a verified `push` is parsed into a `PushEvent` for **any** organization that installed the App. Herald must act only on organizations it serves (see `docs/spec/ingestion.md` "Who Herald serves"). The list of served org ids is in `.env.dev` (`SERVE_ALLOWLIST=244165546`) but `Settings` does not read it, and nothing checks it.
+After task 2.1, a verified `push` is parsed into a `PushEvent` for **any** organization that installed the App. Herald must act only on organizations it serves (see `docs/behavior/ingestion.md` "Who Herald serves"). The list of served org ids is in `.env.dev` (`SERVE_ALLOWLIST=244165546`) but `Settings` does not read it, and nothing checks it.
 
 ## Change
 

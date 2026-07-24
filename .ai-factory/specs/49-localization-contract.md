@@ -17,8 +17,10 @@ Define `Translator` and `Localizer`'s shapes, and pin each strategy's call-count
   - `PivotLocalizer(Localizer)` — constructed with `(reasoner, translator, pivot: str = "en")` (STUBBED `notes`, raises for now).
   - `NativeLocalizer(Localizer)` — constructed with `(reasoner)` (STUBBED `notes`, raises for now).
 - Write red tests over **mocked `reasoner.narrate`** and **mocked `translator.translate`** pinning:
-  - `PivotLocalizer.notes(change, {"ru", "en"})` (pivot `"en"`) → exactly **one** `narrate(change, "en")` call, plus exactly `len(langs) - 1` `translate(...)` calls (one per non-pivot language); the pivot language's entry in the returned dict is the raw `narrate` output, never passed through `translate`;
+  - `PivotLocalizer.notes(change, {"ru", "en"})` (pivot `"en"`) → exactly **one** `narrate(change, "en")` call, plus one `translate(...)` call per requested language other than the pivot (here `"ru"`), each called with `source_lang=` the pivot (never `translate`'s `"en"` default, so a non-`"en"` pivot is not silently read as `"en"`); the pivot language's entry in the returned dict is the raw `narrate` output, never passed through `translate`;
+  - **pivot not among the requested languages** — `PivotLocalizer.notes(change, {"ru", "de"})` (pivot `"en"`) → still exactly **one** `narrate(change, "en")` (the intermediate), plus one `translate` per requested language (here `2`: `ru`, `de`, each `source_lang="en"`), and the result keys are exactly `{"ru", "de"}` — the pivot `"en"` is generated but **not** returned;
   - `NativeLocalizer.notes(change, {"ru", "en"})` → exactly `len(langs)` `narrate` calls, one per language in `langs`, each with the matching `lang` argument;
+  - **empty `langs`** — either strategy with `langs == set()` → an empty dict and **zero** `narrate`/`translate` calls (Pivot does not narrate the pivot when nothing is requested);
   - both strategies' returned dict has exactly the keys in `langs`, no more, no fewer.
 
 ## Files & types
@@ -32,6 +34,8 @@ Define `Translator` and `Localizer`'s shapes, and pin each strategy's call-count
 - Tests-first: both strategies' stubs raise — 8.2.2 turns these tests green, never redesigns the dispatch.
 - Both strategies sit behind **one** `Localizer` seam — callers call only `notes(change, langs)` and never know which strategy backs it.
 - The call-count/argument assertions run against **mocks only** — no real `LLMClient`. Whether the translated text actually preserves identifiers and reads naturally is 8.2.2's eval-harness concern, not asserted here.
+- `PivotLocalizer` translates every requested language **except the pivot**, always with `source_lang=` its configured pivot — so a non-`"en"` pivot is honored, not silently read as `"en"`; the pivot's own narration is returned only when the pivot is itself a requested language.
+- Empty `langs` is a valid input for both strategies: an empty result dict and no LLM calls — no wasted pivot narration.
 
 ## Verification
 

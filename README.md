@@ -57,4 +57,4 @@ summarizer, driven by hand through the CLI and checked by the eval harness. The
 understanding model (the two memories and the reasoner), reports, releases, and the
 internal protocol are specified and not built yet.
 
-See [the specification](docs/spec-overview.md) for how each part behaves.
+See [the specification](docs/behavior-overview.md) for how each part behaves.

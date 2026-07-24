@@ -1,12 +1,12 @@
 # Source-Strategy Profiles (concept)
 
-A forward-looking design. Today Herald ships a single source strategy — the default ai-factory profile (see [architecture.md](../architecture.md) and [understanding.md](../spec/understanding.md)). This concept describes how that one strategy becomes a **plugin system of profiles** when a second project shape needs its own. It is written as the target contract; it is not built, and nothing here is a commitment to build it before a second project shape makes it earn its place.
+A forward-looking design. Today Herald ships a single source strategy — the default ai-factory profile (see [architecture.md](../architecture.md) and [understanding.md](../behavior/understanding.md)). This concept describes how that one strategy becomes a **plugin system of profiles** when a second project shape needs its own. It is written as the target contract; it is not built, and nothing here is a commitment to build it before a second project shape makes it earn its place.
 
 ## Why
 
 A project's source strategy — which files define it and how to read them — is the thing that varies most between projects. Herald meets several shapes in the wild:
 
-- an **ai-factory** project: a layered governing spec — `ROADMAP.md`, `docs/spec/*`, `CLAUDE.md`, `ARCHITECTURE.md` — with plans and plan reviews written in passing that are not part of its identity;
+- an **ai-factory** project: a layered governing spec — `ROADMAP.md`, `docs/**`, `CLAUDE.md`, `ARCHITECTURE.md` — with plans and plan reviews written in passing that are not part of its identity;
 - a **README-centric** project: one large `README.md` plus a small `ARCHITECTURE.md`, with translations and assets that are noise;
 - a **manifesto / Claude-harness** project: a `CLAUDE.md` of principles plus scattered engineering docs, with a roadmap but no governing spec.
 
@@ -53,5 +53,5 @@ Profiles are a registry of named strategies behind one interface. A new project 
 ## Non-goals and when to build
 
 - Today only the **ai-factory** default and the **commits-only** floor are needed. The registry, auto-detection, and additional profiles land when a **second real project shape** must be served — the "extract after the second integration" discipline.
-- Profile configuration is operator config (the registry), part of the multi-tenant configuration evolution (see [configuration.md](../spec/configuration.md)) — not a UI concern here.
+- Profile configuration is operator config (the registry), part of the multi-tenant configuration evolution (see [configuration.md](../behavior/configuration.md)) — not a UI concern here.
 - The mirror stays generic: a profile decides only what is read from the complete local mirror, never how repos are fetched.

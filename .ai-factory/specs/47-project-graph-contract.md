@@ -4,7 +4,7 @@
 
 ## Current state
 
-Declared relationships (a per-repo `CLAUDE.md` naming the proto it owns) already live in the knowledge store and surface through retrieval (see `docs/spec/understanding.md#project-graph`). The links that are **not** written down — two tightly-coupled repos that cross-reference nothing — have no home. There is no edge model, no store, no way to declare them.
+Declared relationships (a per-repo `CLAUDE.md` naming the proto it owns) already live in the knowledge store and surface through retrieval (see `docs/behavior/understanding.md#project-graph`). The links that are **not** written down — two tightly-coupled repos that cross-reference nothing — have no home. There is no edge model, no store, no way to declare them.
 
 Worse, the natural schema has a sharp silent trap: the `project_edges` primary key is `(from_repo, to_repo, kind)` — it **excludes** `source`. Two different writers touch this table: an operator's config (loaded once at startup, tagged `source=config`) and 6.2's coordination-root seeder (re-run on every canonical-ref push touching a `CLAUDE.md`, tagged `source=seed`). If a seed write ever produces the same `(from_repo, to_repo, kind)` triple as an existing config edge, the PK collision means the seed write either **silently overwrites the row's `source` from `config` to `seed`** — making an operator-declared edge deletable by the next `remove_seed_edges` call — or fails with no signal, depending on the conflict strategy. The guard "config never overwritten by seeding" is asserted in prose today with nothing proving it survives this exact collision.
 

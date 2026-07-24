@@ -70,7 +70,7 @@ Two tightly-coupled projects can depend on each other while cross-referencing no
 
 ### Seeding from coordination roots
 
-A repository that declares itself a coordination layer and lists its sub-projects can seed the registry directly — the membership and the contracts it states become edges with no hand-entry. The registry is the union of these and the operator's own edges.
+A repository that declares itself a coordination layer and lists its sub-projects can seed the registry directly — the membership and the contracts it states become edges with no hand-entry. The registry is the union of these and the operator's own edges. The exact `CLAUDE.md` shape Herald recognizes — the section that marks a coordination root and the member table it reads — is the [coordination-root format](coordination-root-format.md).
 
 ### Fallback
 

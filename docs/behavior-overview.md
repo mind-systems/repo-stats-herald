@@ -10,26 +10,26 @@ and as release notes, delivered to the channels each fits.
 
 Two things happen, on different clocks.
 
-**On every push** — [ingestion](spec/ingestion.md) turns a push to a tracked repository
+**On every push** — [ingestion](behavior/ingestion.md) turns a push to a tracked repository
 into an authenticated event carrying the organization, repository, branch, and
 commits, and the derivation engine folds it into Herald's memory: the episodic log
 always, and the semantic model when the push is on the project's canonical ref (see
-[understanding.md](spec/understanding.md),
+[understanding.md](behavior/understanding.md),
 [architecture](architecture.md#the-two-engines-over-the-event-stream)). A push updates
 memory; it is not reported on its own.
 
-**On a cadence and on releases** — the [reasoner](spec/narration.md) narrates from that
-memory and [delivery](spec/delivery.md) sends it: daily and weekly **reports** — each
+**On a cadence and on releases** — the [reasoner](behavior/narration.md) narrates from that
+memory and [delivery](behavior/delivery.md) sends it: daily and weekly **reports** — each
 an ordered composition of content sections over a time window — and, on a push to
 `staging` or the default branch, a versioned **release note** accumulated since the
 last deploy. Each goes to the channels its trigger activates: Telegram for reports;
 Telegram, the GitHub release, and an integrated app's changelog store for releases.
 
 A delivery reads from a single delivery plan resolved from
-`(organization, repository, branch)` — see [delivery.md](spec/delivery.md) and
-[configuration.md](spec/configuration.md).
+`(organization, repository, branch)` — see [delivery.md](behavior/delivery.md) and
+[configuration.md](behavior/configuration.md).
 
-For a repository that predates Herald, [replay](spec/replay.md) runs the same engines
+For a repository that predates Herald, [replay](behavior/replay.md) runs the same engines
 over its existing history in simulated time, delivering the reports and release notes
 Herald would have sent along the way.
 
@@ -56,9 +56,9 @@ Herald would have sent along the way.
   the best packing is none at all: where a rung's written form survives (a roadmap
   task, a spec), Herald anchors to it instead of re-deriving it.
 - **Herald narrates from an understanding of each project.** It keeps a
-  standing [knowledge model](spec/understanding.md#per-project-knowledge-model) of every project — features,
+  standing [knowledge model](behavior/understanding.md#per-project-knowledge-model) of every project — features,
   direction, built-vs-remaining — built from curated artifacts, and a
-  [project graph](spec/understanding.md#project-graph) of how projects connect. Narration reasons
+  [project graph](behavior/understanding.md#project-graph) of how projects connect. Narration reasons
   over these; a push's commits tell Herald what moved, and the model gives it the
   meaning.
 - **The branch role classifies the release path.** A `staging` or default-branch push

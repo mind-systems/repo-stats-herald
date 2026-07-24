@@ -2,7 +2,7 @@
 
 A forward-looking design. Today Herald builds its knowledge model from a project's
 curated artifacts — the human-written roadmap, architecture, and docs (see
-[understanding.md](../spec/understanding.md)). This concept describes how a project
+[understanding.md](../behavior/understanding.md)). This concept describes how a project
 that has **no such artifacts** — only code — is still understood at the level of
 features, not classes. It is written as the target contract; it is not built, and
 nothing here commits to building it before a code-only project must be served.

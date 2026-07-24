@@ -4,7 +4,7 @@
 
 ## Current state
 
-15.1's `POST /ask` is stateless by design (per `docs/spec/conversation.md`'s "single question, standing memory") — each question is answered independently, with no memory of prior turns in the same conversation. A user asking a natural follow-up ("what about its dependencies?") gets an answer with no idea what "its" refers to.
+15.1's `POST /ask` is stateless by design (per `docs/behavior/conversation.md`'s "single question, standing memory") — each question is answered independently, with no memory of prior turns in the same conversation. A user asking a natural follow-up ("what about its dependencies?") gets an answer with no idea what "its" refers to.
 
 ## Change
 

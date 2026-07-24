@@ -1,10 +1,10 @@
 # 15.1 — Conversation endpoint
 
-**Phase:** 15 — Conversational surface. Depends on Phase 7 (the reasoner). First task; the behavioral contract is `docs/spec/conversation.md`.
+**Phase:** 15 — Conversational surface. Depends on Phase 7 (the reasoner). First task; the behavioral contract is `docs/behavior/conversation.md`.
 
 ## Current state
 
-The reasoner (Phase 7) answers a query, but nothing exposes it to a person — `src/main.py` has only `GET /health` and the GitHub webhook. `docs/spec/conversation.md` specifies the contract this task implements: a channel-agnostic request/response surface, stateless (each question self-contained, answered from standing memory rather than conversation history), optionally scoped to a project.
+The reasoner (Phase 7) answers a query, but nothing exposes it to a person — `src/main.py` has only `GET /health` and the GitHub webhook. `docs/behavior/conversation.md` specifies the contract this task implements: a channel-agnostic request/response surface, stateless (each question self-contained, answered from standing memory rather than conversation history), optionally scoped to a project.
 
 ## Change
 
