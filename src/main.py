@@ -23,6 +23,7 @@ from src.knowledge.source_strategy import AiFactorySourceStrategy
 from src.knowledge.store import PgVectorStore
 from src.knowledge.sync import KnowledgeSync
 from src.llm.embedder import OllamaEmbedder
+from src.routing.resolver import DeliveryPlanResolver
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "ingestion" / "schema.sql"
 KNOWLEDGE_SCHEMA_PATH = Path(__file__).resolve().parent / "knowledge" / "schema.sql"
@@ -50,6 +51,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             Edge(from_repo=from_repo, to_repo=to_repo, kind=EdgeKind(kind), source="config")
         )
     logger.info("loaded %d config project edges", len(settings.project_edges))
+
+    app.state.delivery_plan_resolver = DeliveryPlanResolver(settings)
 
     if (
         settings.github_app_id is not None
