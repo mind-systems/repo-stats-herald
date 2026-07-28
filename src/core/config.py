@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     ssh_port: int = 22
     ssh_key: str | None = None
     github_webhook_secret: str
+    telegram_bot_token: str
     serve_allowlist: Annotated[frozenset[int], NoDecode] = frozenset()
     github_app_id: int | None = None
     github_app_private_key_path: str | None = None

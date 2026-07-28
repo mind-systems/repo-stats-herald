@@ -22,7 +22,7 @@ def test_similar_but_not_exact_names_fall_to_dev():
 
 
 def test_resolve_derives_flags_from_role():
-    resolver = DeliveryPlanResolver(Settings(github_webhook_secret="x"))
+    resolver = DeliveryPlanResolver(Settings(github_webhook_secret="x", telegram_bot_token="x"))
 
     release_plan = resolver.resolve(org_id=1, repo="repo", branch="main")
     assert release_plan.branch_role is BranchRole.RELEASE
