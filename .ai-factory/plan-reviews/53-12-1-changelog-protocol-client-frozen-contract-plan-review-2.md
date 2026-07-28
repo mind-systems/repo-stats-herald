@@ -28,6 +28,6 @@ None.
 - Pinning the changelog-firing gate to the caller (11.3/12.2) and keeping `changelog_base_url` filled unconditionally in the resolver keeps the seam a pure lookup, matching the resolver-state design so the config store can move to a database/GUI later without touching delivery code.
 
 ## Deferred observations
-- Affects: operator configuration / `.env.example` — The new `REPO_APPS` env setting is not slated for an `.env.example` entry (plan sets `Docs: no`, and the file is outside this task's declared file boundary). Several JSON-dict settings there are documented (`CANONICAL_REFS`, `GITHUB_ORG_LOGINS`, `REPORT_SCHEDULES`), but its closest sibling `TELEGRAM_CHANNELS` is *not* documented there either, so the omission is consistent with existing precedent rather than a regression. Worth a one-line example when the delivery config surface is next revisited.
+- Affects: operator configuration / `.env.example` — The new `REPO_APPS` env setting is not slated for an `.env.example` entry (plan sets `Docs: no`, and the file is outside this task's declared file boundary). Several JSON-dict settings there are documented (`CANONICAL_REFS`, `GITHUB_ORG_LOGINS`, `REPORT_SCHEDULES`), but its closest sibling `TELEGRAM_CHANNELS` is *not* documented there either, so the omission is consistent with existing precedent rather than a regression. Worth a one-line example when the delivery config surface is next revisited. [dismissed]
 
 PLAN_REVIEW_PASS

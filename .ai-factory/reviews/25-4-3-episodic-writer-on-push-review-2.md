@@ -58,7 +58,7 @@ Re-read all four changed files in full. `src/commits/collector.py` (`commit_time
 
 ## Deferred observations (non-blocking)
 
-- **Empty-`content` edge (finding 2):** optionally skip the append when `content == ""` if empty-range/rewind pushes are expected; otherwise no action — the failure is now logged, not fatal.
-- **Double mirror refresh (carried from review 1 / the plan):** both `on_push` and `write` independently call `mirror.ensure` + open a worktree at `push.after` per push. Acceptable cost of the self-contained design; a shared per-push refresh step is the natural future optimization if push volume grows.
+- **Empty-`content` edge (finding 2):** optionally skip the append when `content == ""` if empty-range/rewind pushes are expected; otherwise no action — the failure is now logged, not fatal. [dismissed]
+- **Double mirror refresh (carried from review 1 / the plan):** both `on_push` and `write` independently call `mirror.ensure` + open a worktree at `push.after` per push. Acceptable cost of the self-contained design; a shared per-push refresh step is the natural future optimization if push volume grows. [dismissed]
 
 REVIEW_PASS

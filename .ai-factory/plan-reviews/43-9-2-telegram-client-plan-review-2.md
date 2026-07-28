@@ -31,6 +31,6 @@ None. The plan's codebase assumptions were verified against ground truth and all
 
 ## Deferred observations
 
-- Affects: Phase 9 / `specs/15-telegram-client.md` — The spec and roadmap both mandate splitting on the Python "character boundary," but Telegram's 4096 limit is counted in UTF-16 code units; a message dense in astral-plane characters (emoji, some CJK extensions) could produce a part whose Python `len` is ≤ 4096 yet exceeds Telegram's UTF-16 count, causing the API to reject it. This is a governing-spec decision, not a plan defect — the plan faithfully implements the spec as written — and is out of scope for this task. Flagging only so a future delivery-hardening pass can decide whether the limit should be measured in UTF-16 units.
+- Affects: Phase 9 / `specs/15-telegram-client.md` — The spec and roadmap both mandate splitting on the Python "character boundary," but Telegram's 4096 limit is counted in UTF-16 code units; a message dense in astral-plane characters (emoji, some CJK extensions) could produce a part whose Python `len` is ≤ 4096 yet exceeds Telegram's UTF-16 count, causing the API to reject it. This is a governing-spec decision, not a plan defect — the plan faithfully implements the spec as written — and is out of scope for this task. Flagging only so a future delivery-hardening pass can decide whether the limit should be measured in UTF-16 units. [routed → .ai-factory/specs/58-telegram-message-boundary-rule.md]
 
 PLAN_REVIEW_PASS

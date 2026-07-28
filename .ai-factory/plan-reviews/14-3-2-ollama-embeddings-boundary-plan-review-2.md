@@ -27,6 +27,6 @@ Round 1 flagged that documenting the env key as `OLLAMA_EMBED_MODEL` while namin
 
 ## Deferred observations
 
-- Affects: task 3.3 (`vector(<dim>)` column) / task 3.4 (Artifact indexer) — Consistent with the plan's `Testing: no`, there is no automated verification here; the roadmap's "through the tunnel, `embed([...])` → fixed-dim vectors" stays a manual tunnel call. Before 3.3 pins the store's `vector(<dim>)` column, someone should exercise `OllamaEmbedder.embed` against the live `nomic-embed-text` model through the tunnel so the configured model's real dimension is known — the embedder guarantees a stable dimension but never asserts a specific one, by design.
+- Affects: task 3.3 (`vector(<dim>)` column) / task 3.4 (Artifact indexer) — Consistent with the plan's `Testing: no`, there is no automated verification here; the roadmap's "through the tunnel, `embed([...])` → fixed-dim vectors" stays a manual tunnel call. Before 3.3 pins the store's `vector(<dim>)` column, someone should exercise `OllamaEmbedder.embed` against the live `nomic-embed-text` model through the tunnel so the configured model's real dimension is known — the embedder guarantees a stable dimension but never asserts a specific one, by design. [dismissed]
 
 PLAN_REVIEW_PASS

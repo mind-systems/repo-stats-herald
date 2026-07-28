@@ -39,6 +39,6 @@ None.
 
 ## Deferred observations
 
-- Affects: Phase 4 write-path efficiency (future report-cadence work, outside this task's file boundary) — On every served push both `KnowledgeSync.on_push` and `EpisodicWriter.write` independently call `mirror.ensure` (a `git fetch --prune`) and open a worktree at `push.after`. This double-fetch is an inherent, acceptable cost of the self-contained design the plan (correctly) chose; if push volume grows it is the natural candidate for a shared per-push mirror-refresh step upstream of both background tasks. (Carried forward from the plan's own deferred note and prior review — no action required for this task.)
+- Affects: Phase 4 write-path efficiency (future report-cadence work, outside this task's file boundary) — On every served push both `KnowledgeSync.on_push` and `EpisodicWriter.write` independently call `mirror.ensure` (a `git fetch --prune`) and open a worktree at `push.after`. This double-fetch is an inherent, acceptable cost of the self-contained design the plan (correctly) chose; if push volume grows it is the natural candidate for a shared per-push mirror-refresh step upstream of both background tasks. (Carried forward from the plan's own deferred note and prior review — no action required for this task.) [dismissed]
 
 Tighten Minor Issue 1's import wording; the plan is otherwise accurate, well-grounded, and ready to implement.

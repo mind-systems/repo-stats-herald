@@ -101,7 +101,7 @@ copying a registry that shouldn't exist.
   rather than a resolved SHA (per spec, "`after` = HEAD"). This is correct for this task,
   but the consuming pipeline must ensure sections that receive `after` treat it as a live
   ref against the already-ensured bare store; if any downstream consumer expects a pinned
-  SHA (as `TimeWindow` returns), that mismatch surfaces in 11.2.2, not here.
+  SHA (as `TimeWindow` returns), that mismatch surfaces in 11.2.2, not here. [dismissed]
 
 Overall the plan is implementation-ready. Address finding 1 (define the `DEV`/`else`
 behavior) and the plan is solid.

@@ -47,7 +47,7 @@ None blocking. Every instruction is implementable as written and produces correc
 
 ## Deferred observations
 
-- Affects: Phase 4 write-path efficiency (future report-cadence work, outside this task's file boundary) — On every served push both `KnowledgeSync.on_push` and `EpisodicWriter.write` independently call `mirror.ensure` (a `git fetch --prune`) and open a worktree at `push.after`. This double-fetch is an inherent, acceptable cost of the self-contained design the plan (correctly) chose; if push volume grows it is the natural candidate for a shared per-push mirror-refresh step upstream of both background tasks.
+- Affects: Phase 4 write-path efficiency (future report-cadence work, outside this task's file boundary) — On every served push both `KnowledgeSync.on_push` and `EpisodicWriter.write` independently call `mirror.ensure` (a `git fetch --prune`) and open a worktree at `push.after`. This double-fetch is an inherent, acceptable cost of the self-contained design the plan (correctly) chose; if push volume grows it is the natural candidate for a shared per-push mirror-refresh step upstream of both background tasks. [dismissed]
 
 The plan is accurate, fully grounded against the current code, and ready to implement.
 

@@ -30,6 +30,6 @@ None.
 - **Reused single `Report` across repos is correct:** the window carries repo-agnostic collaborators and `resolve(repo)`/`build(repo, org_id)` take the repo per-iteration, so one `report_for_schedule(...)` object serves every served repo in the loop.
 
 ## Deferred observations
-- Affects: task 10.3 (report localization) — Task 5 delivers at `plan.language` (default `"ru"`); the plan notes 10.3 threads non-RU via the localizer. Single-language build is the correct 10.2 scope; noted only so the RU-only delivery isn't mistaken for an omission.
+- Affects: task 10.3 (report localization) — Task 5 delivers at `plan.language` (default `"ru"`); the plan notes 10.3 threads non-RU via the localizer. Single-language build is the correct 10.2 scope; noted only so the RU-only delivery isn't mistaken for an omission. [dismissed]
 
 PLAN_REVIEW_PASS

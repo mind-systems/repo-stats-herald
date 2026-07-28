@@ -45,6 +45,6 @@ Either relocate the orchestrator so `src/episodic/` imports nothing push-shaped,
 
 ## Deferred observations
 
-- Affects: Phase 4 write-path efficiency (future report-cadence work, not this task's file boundary) — On every served push both `KnowledgeSync.on_push` and `EpisodicWriter.write` independently call `mirror.ensure` (a `git fetch --prune`) and open a worktree at `push.after`. This double-fetch is an inherent, acceptable cost of the self-contained design the plan (correctly) chose, but if push volume grows it is the natural candidate for a shared per-push mirror-refresh step upstream of both background tasks.
+- Affects: Phase 4 write-path efficiency (future report-cadence work, not this task's file boundary) — On every served push both `KnowledgeSync.on_push` and `EpisodicWriter.write` independently call `mirror.ensure` (a `git fetch --prune`) and open a worktree at `push.after`. This double-fetch is an inherent, acceptable cost of the self-contained design the plan (correctly) chose, but if push volume grows it is the natural candidate for a shared per-push mirror-refresh step upstream of both background tasks. [dismissed]
 
 Reconcile Critical Issue 1 before implementation; the remainder of the plan is accurate and ready.

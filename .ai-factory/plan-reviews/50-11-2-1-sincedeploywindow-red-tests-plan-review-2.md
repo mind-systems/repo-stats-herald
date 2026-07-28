@@ -109,7 +109,7 @@ None.
   rather than a resolved SHA (correct per spec: "`after` = HEAD"). The consuming pipeline
   must treat `after` as a live ref against the already-ensured bare store; if any
   downstream section expects a pinned SHA (as `TimeWindow` returns), that mismatch surfaces
-  in 11.2.2, not in this red-tests task.
+  in 11.2.2, not in this red-tests task. [dismissed]
 
 The plan is implementation-ready: both prior-review findings are closed, every API and
 ordering claim is verified against ground truth, and the guard set fully covers the spec's

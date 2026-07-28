@@ -26,6 +26,6 @@ The governing spec and roadmap both fix the field name as `embed_model`, so the 
 
 ## Deferred observations
 
-- Affects: task 3.4 (Artifact indexer) / spec verification — The plan carries no automated verification and, correctly, no composition-root wiring (the first consumer is the 3.4 indexer). The roadmap's verify — "through the tunnel, `embed([...])` → fixed-dim vectors" — is thus a manual tunnel call with no harness or script in this task (consistent with the plan's `Testing: no` / `Docs: no` settings). Worth ensuring 3.4, or a one-off tunnel check, actually exercises `OllamaEmbedder.embed` against a live model before the store's `vector(<dim>)` column is pinned in 3.3, so the configured model's real dimension is known.
+- Affects: task 3.4 (Artifact indexer) / spec verification — The plan carries no automated verification and, correctly, no composition-root wiring (the first consumer is the 3.4 indexer). The roadmap's verify — "through the tunnel, `embed([...])` → fixed-dim vectors" — is thus a manual tunnel call with no harness or script in this task (consistent with the plan's `Testing: no` / `Docs: no` settings). Worth ensuring 3.4, or a one-off tunnel check, actually exercises `OllamaEmbedder.embed` against a live model before the store's `vector(<dim>)` column is pinned in 3.3, so the configured model's real dimension is known. [dismissed]
 
 Fix the env-key mismatch (Critical #1) and the plan is otherwise ready.

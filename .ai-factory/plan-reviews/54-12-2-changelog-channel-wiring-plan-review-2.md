@@ -37,6 +37,6 @@ None. Both prior-round findings are resolved:
 - The Task 4 test matrix mirrors spec 23's verification matrix exactly (mapped-reachable staging, release→production, unmapped skip, unreachable-at-`entry`, zero-re-derivation, None-version).
 
 ## Deferred observations
-- Affects: Phase 11 / 12 (`src/ingestion/router.py::_deliver_release`) — the release fan-out is a growing module-level orchestration living in the ingestion router, in tension with ARCHITECTURE.md's "routers are thin, services own business logic" guidance. This originates in 11.3 and is out of 12.2's scope; whether to extract it into a delivery-side service (as spec 23's original `service.py` hint envisioned) is a structural decision for the phase, not this task. The plan's inline placement is the correct local choice given the current shape.
+- Affects: Phase 11 / 12 (`src/ingestion/router.py::_deliver_release`) — the release fan-out is a growing module-level orchestration living in the ingestion router, in tension with ARCHITECTURE.md's "routers are thin, services own business logic" guidance. This originates in 11.3 and is out of 12.2's scope; whether to extract it into a delivery-side service (as spec 23's original `service.py` hint envisioned) is a structural decision for the phase, not this task. The plan's inline placement is the correct local choice given the current shape. [routed → .ai-factory/specs/60-release-delivery-extraction.md]
 
 PLAN_REVIEW_PASS

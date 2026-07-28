@@ -43,6 +43,6 @@ The plan's Settings block justifies "Testing: yes" with "the spec's Verification
 - No schema migration needed — `replace_seed_edges` reuses the existing `project_edges` table and PK; the plan correctly adds none.
 
 ## Deferred observations
-- Affects: unknown (future consumer) — The seeder opens a *second* worktree via `mirror.tree(...)` after `backfill`/`on_push` already opened and released one for the same ref. Reclamation is deferred to the next `ensure`, so this at most doubles transient worktree count per canonical push, not a leak. Out of this task's boundary (it is `RepoMirror`'s deferred-reclamation design) and not worth coupling into 6.2; noting only in case a later pass consolidates the two reads.
+- Affects: unknown (future consumer) — The seeder opens a *second* worktree via `mirror.tree(...)` after `backfill`/`on_push` already opened and released one for the same ref. Reclamation is deferred to the next `ensure`, so this at most doubles transient worktree count per canonical push, not a leak. Out of this task's boundary (it is `RepoMirror`'s deferred-reclamation design) and not worth coupling into 6.2; noting only in case a later pass consolidates the two reads. [dismissed]
 
 Overall the plan is close, but Critical Issue 1 leaves a spec-required behavior (backfill seeding) with no runnable path, so it does not pass as written.

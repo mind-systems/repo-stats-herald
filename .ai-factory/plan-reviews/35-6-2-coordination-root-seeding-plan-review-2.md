@@ -38,7 +38,7 @@ The plan's Settings block scopes tests to the silent-failure surfaces (parsing, 
 
 ## Deferred observations
 
-- Affects: unknown (RepoMirror deferred-reclamation design, outside this task's boundary) — `seed` opens a *second* worktree via `mirror.tree(...)` after `backfill`/`on_push` already opened and released one for the same ref. Reclamation is deferred to the next `ensure`, so this at most doubles transient worktree count per canonical push — bounded, not a leak. `seed(repo, org_id)`'s signature is fixed by the spec, so it cannot receive the caller's already-open tree; consolidating the two reads would be a `RepoMirror`/signature change beyond 6.2. Noted only in case a later pass unifies the reads.
+- Affects: unknown (RepoMirror deferred-reclamation design, outside this task's boundary) — `seed` opens a *second* worktree via `mirror.tree(...)` after `backfill`/`on_push` already opened and released one for the same ref. Reclamation is deferred to the next `ensure`, so this at most doubles transient worktree count per canonical push — bounded, not a leak. `seed(repo, org_id)`'s signature is fixed by the spec, so it cannot receive the caller's already-open tree; consolidating the two reads would be a `RepoMirror`/signature change beyond 6.2. Noted only in case a later pass unifies the reads. [dismissed]
 
 The revision resolves every round-1 finding, tracks the spec and ground-truth code precisely, and introduces no new architectural, migration, path, or API defect.
 

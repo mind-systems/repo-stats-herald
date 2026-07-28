@@ -31,6 +31,6 @@ Task 3 adds `changelog_base_url = self._settings.repo_apps.get(repo)` to `resolv
 - The plan correctly forbids gating `changelog_base_url` on `branch_role` inside the resolver and pins the firing gate to the caller (11.3/12.2), keeping the resolver seam a pure lookup — this matches the resolver-state design in `docs/behavior/delivery.md`.
 
 ## Deferred observations
-- Affects: operator configuration / `.env.example` — The new `REPO_APPS` env setting is not slated for an `.env.example` entry (plan sets `Docs: no`). Most JSON-dict settings there are documented (`CANONICAL_REFS`, `GITHUB_ORG_LOGINS`, `PROJECT_EDGES`, `REPORT_SCHEDULES`), but its closest sibling `TELEGRAM_CHANNELS` is *not* documented there either, so omission is consistent with existing precedent rather than a regression. Worth a one-line example when the delivery config surface is next revisited, but not required by this task.
+- Affects: operator configuration / `.env.example` — The new `REPO_APPS` env setting is not slated for an `.env.example` entry (plan sets `Docs: no`). Most JSON-dict settings there are documented (`CANONICAL_REFS`, `GITHUB_ORG_LOGINS`, `PROJECT_EDGES`, `REPORT_SCHEDULES`), but its closest sibling `TELEGRAM_CHANNELS` is *not* documented there either, so omission is consistent with existing precedent rather than a regression. Worth a one-line example when the delivery config surface is next revisited, but not required by this task. [dismissed]
 
 Fix issue #1 (add the resolver test) and the plan is ready to implement.

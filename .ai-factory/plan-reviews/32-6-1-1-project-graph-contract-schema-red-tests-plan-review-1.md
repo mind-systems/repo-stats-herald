@@ -27,6 +27,6 @@ None.
 - Task dependencies (Task 3→1, Task 4→2,3, Task 5→4) are ordered correctly and the stub-raises/tests-red invariant is stated unambiguously so 6.1.2 cannot be tempted to edit tests instead of bodies.
 
 ## Deferred observations
-- Affects: machine/environment setup (out of this task's file boundary) — `src.core.db.create_pool` registers a text codec for the pgvector `vector` type on every connection, so it requires the `vector` extension to already exist in `herald_database` even though `src/graph/schema.sql` deliberately (and correctly) carries no vector column or `CREATE EXTENSION`. This is satisfied today by the once-per-machine setup and by `src/episodic/schema.sql` creating the extension, so the graph tests pass as planned; it is only a latent coupling worth remembering if a graph-only test DB is ever provisioned in isolation. Nothing to change in this plan.
+- Affects: machine/environment setup (out of this task's file boundary) — `src.core.db.create_pool` registers a text codec for the pgvector `vector` type on every connection, so it requires the `vector` extension to already exist in `herald_database` even though `src/graph/schema.sql` deliberately (and correctly) carries no vector column or `CREATE EXTENSION`. This is satisfied today by the once-per-machine setup and by `src/episodic/schema.sql` creating the extension, so the graph tests pass as planned; it is only a latent coupling worth remembering if a graph-only test DB is ever provisioned in isolation. Nothing to change in this plan. [dismissed]
 
 PLAN_REVIEW_PASS

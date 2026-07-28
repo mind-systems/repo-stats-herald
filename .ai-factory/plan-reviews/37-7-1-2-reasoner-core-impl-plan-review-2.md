@@ -81,6 +81,6 @@ None. Every concrete wiring claim in the plan was checked against the code and i
   the shared retrieval shape those tasks are meant to extend, and this plan keeps it internal to
   `reasoner.py`. That placement is correct for 7.1.2 (it avoids the prompt-import cycle). If 7.2/8.1
   grow the shape or need `prompt.py` to consume it, they should re-evaluate relocating it to a neutral
-  module both can import. No action required within 7.1.2.
+  module both can import. No action required within 7.1.2. [dismissed]
 
 PLAN_REVIEW_PASS

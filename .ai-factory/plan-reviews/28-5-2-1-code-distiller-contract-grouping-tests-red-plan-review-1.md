@@ -34,6 +34,6 @@ None.
 
 ## Deferred observations
 
-- Affects: 5.2.2 (`.ai-factory/specs/33-code-to-feature-distillation.md`) — `compose` is pinned to join per-unit strings with a bare `"\n\n"` separator. That is fully adequate for the determinism this red task asserts, but when 5.2.2 turns the seam green it produces the actual feature-level document fed to the store; if that document benefits from per-unit headings or delimiters, the format lives in `compose` and can be enriched there without disturbing these tests (they assert order + separator presence + determinism, not the absence of additional structure). Nothing to change now — flagged so the format choice is a conscious one when the real composition lands.
+- Affects: 5.2.2 (`.ai-factory/specs/33-code-to-feature-distillation.md`) — `compose` is pinned to join per-unit strings with a bare `"\n\n"` separator. That is fully adequate for the determinism this red task asserts, but when 5.2.2 turns the seam green it produces the actual feature-level document fed to the store; if that document benefits from per-unit headings or delimiters, the format lives in `compose` and can be enriched there without disturbing these tests (they assert order + separator presence + determinism, not the absence of additional structure). Nothing to change now — flagged so the format choice is a conscious one when the real composition lands. [dismissed]
 
 PLAN_REVIEW_PASS

@@ -28,6 +28,6 @@ Single-flight test design (Task 7) satisfies spec `41`'s discrimination gate: an
 - **Constructors are provably side-effect-free** (store-only, PEM *content* not a path, no FS touch), so "constructing must not raise" holds and fixtures resolve cleanly.
 
 ## Deferred observations
-- Affects: 3.1.2 / spec `.ai-factory/specs/04-repo-mirror.md` — This plan imposes a naming contract on 3.1.2 (the single mint step must be the method `_mint_token`, since Task 7 binds a counting patch to that exact attribute), but spec `04` does not mention `_mint_token`. The red test is the de-facto enforcement, which is acceptable TDD; still, when 3.1.2 is implemented, spec `04` should record that `token()` delegates its one mint to `_mint_token` so the private-name coupling becomes a documented contract rather than an implicit test dependency. Outside this task's file boundary (spec `04` is 3.1.2's spec), hence deferred.
+- Affects: 3.1.2 / spec `.ai-factory/specs/04-repo-mirror.md` — This plan imposes a naming contract on 3.1.2 (the single mint step must be the method `_mint_token`, since Task 7 binds a counting patch to that exact attribute), but spec `04` does not mention `_mint_token`. The red test is the de-facto enforcement, which is acceptable TDD; still, when 3.1.2 is implemented, spec `04` should record that `token()` delegates its one mint to `_mint_token` so the private-name coupling becomes a documented contract rather than an implicit test dependency. Outside this task's file boundary (spec `04` is 3.1.2's spec), hence deferred. [dismissed]
 
 PLAN_REVIEW_PASS

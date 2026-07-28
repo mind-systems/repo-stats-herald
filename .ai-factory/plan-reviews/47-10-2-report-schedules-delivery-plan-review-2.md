@@ -49,4 +49,4 @@ Whichever is chosen, Task 7 should add the empty-repo case (`after == EMPTY_TREE
 - The quiet-window path is correct: canonical tip older than `now - delta` gives `before == after == tip`, so `EMPTY_TREE`-free `commit_timestamp(tip)` calls succeed and every section returns `None` → `build` → `None`. The crash is confined to the empty-repo (`after == EMPTY_TREE`) case above.
 
 ## Deferred observations
-- Affects: task 10.3 (report localization) — Task 5 hard-codes delivery to `plan.language` (default `"ru"`) and the plan notes 10.3 later threads non-RU via the localizer. No action here; the single-language build is the correct 10.2 scope, and 10.3 owns the multi-language extension. Noted only so the RU-only delivery isn't mistaken for an omission.
+- Affects: task 10.3 (report localization) — Task 5 hard-codes delivery to `plan.language` (default `"ru"`) and the plan notes 10.3 later threads non-RU via the localizer. No action here; the single-language build is the correct 10.2 scope, and 10.3 owns the multi-language extension. Noted only so the RU-only delivery isn't mistaken for an omission. [dismissed]

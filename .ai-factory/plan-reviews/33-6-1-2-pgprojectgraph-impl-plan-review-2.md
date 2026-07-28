@@ -32,6 +32,6 @@ None. The described SQL greens all four pinned cases in `tests/graph/test_projec
 - Config load is placed unconditionally, outside the GitHub-App/mirror gate in `lifespan` — correct, since operator edges must load even when canonical-ref sync is disabled.
 
 ## Deferred observations
-- Affects: Phase 6 cross-project narration (future `neighbors` consumer) — `neighbors(repo)` as specified (`SELECT to_repo … WHERE from_repo = $1 ORDER BY to_repo`, no `DISTINCT`) can return a duplicate `to_repo` when two edges of different `kind` link the same ordered pair (e.g. `a→b:CONTRACT` and `a→b:DEPENDENCY`). This conforms to the pinned 6.1.1 contract ("the `to_repo` of every edge `repo -> ...`") and passes the current tests, so it is correct for this task; flagging only so the eventual neighbors-consumer decides whether it wants distinct project neighbors and de-dupes at that layer.
+- Affects: Phase 6 cross-project narration (future `neighbors` consumer) — `neighbors(repo)` as specified (`SELECT to_repo … WHERE from_repo = $1 ORDER BY to_repo`, no `DISTINCT`) can return a duplicate `to_repo` when two edges of different `kind` link the same ordered pair (e.g. `a→b:CONTRACT` and `a→b:DEPENDENCY`). This conforms to the pinned 6.1.1 contract ("the `to_repo` of every edge `repo -> ...`") and passes the current tests, so it is correct for this task; flagging only so the eventual neighbors-consumer decides whether it wants distinct project neighbors and de-dupes at that layer. [dismissed]
 
 PLAN_REVIEW_PASS
