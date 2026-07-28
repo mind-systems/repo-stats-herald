@@ -1,8 +1,17 @@
+import typing
 from abc import ABC, abstractmethod
 
 from src.episodic.linked_change import LinkedChange
 from src.reasoning.reasoner import Reasoner
 from src.reasoning.translator import Translator
+
+
+class ReportProtocol(typing.Protocol):
+    """Structural shape a `Localizer` needs from `changelog.Report` —
+    declared here (not imported) so `reasoning` never depends on
+    `changelog`, keeping the `changelog → reasoning` dependency one-way."""
+
+    async def build(self, repo: str, org_id: int, lang: str = "ru") -> str | None: ...
 
 
 class Localizer(ABC):
@@ -13,6 +22,11 @@ class Localizer(ABC):
 
     @abstractmethod
     async def notes(self, change: LinkedChange, langs: set[str]) -> dict[str, str]: ...
+
+    @abstractmethod
+    async def report_notes(
+        self, report: ReportProtocol, repo: str, org_id: int, langs: set[str]
+    ) -> dict[str, str | None]: ...
 
 
 class PivotLocalizer(Localizer):
@@ -51,6 +65,35 @@ class PivotLocalizer(Localizer):
                 )
         return result
 
+    async def report_notes(
+        self, report: ReportProtocol, repo: str, org_id: int, langs: set[str]
+    ) -> dict[str, str | None]:
+        """Mirrors `notes` exactly, substituting `report.build(repo, org_id,
+        lang)` for `reasoner.narrate(change, lang)`: `report.build` is called
+        **once**, for `pivot`, regardless of how many languages are
+        requested. When that pivot build returns `None` (every section in
+        the report was empty), every requested language maps to `None` and
+        `translate` is never called — there is no text to translate. An
+        empty `langs` yields an empty dict without building or translating
+        anything."""
+        if not langs:
+            return {}
+
+        pivot_text = await report.build(repo, org_id, self._pivot)
+
+        if pivot_text is None:
+            return {lang: None for lang in langs}
+
+        result: dict[str, str | None] = {}
+        for lang in langs:
+            if lang == self._pivot:
+                result[lang] = pivot_text
+            else:
+                result[lang] = await self._translator.translate(
+                    pivot_text, target_lang=lang, source_lang=self._pivot
+                )
+        return result
+
 
 class NativeLocalizer(Localizer):
     """Reasons independently in every requested language — no pivot, no
@@ -67,3 +110,11 @@ class NativeLocalizer(Localizer):
 
     async def notes(self, change: LinkedChange, langs: set[str]) -> dict[str, str]:
         return {lang: await self._reasoner.narrate(change, lang) for lang in langs}
+
+    async def report_notes(
+        self, report: ReportProtocol, repo: str, org_id: int, langs: set[str]
+    ) -> dict[str, str | None]:
+        """One `report.build` call per requested language, each
+        independently possibly `None` — no translation. An empty `langs`
+        yields an empty dict without building anything."""
+        return {lang: await report.build(repo, org_id, lang) for lang in langs}

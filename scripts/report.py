@@ -28,8 +28,10 @@ from src.knowledge.source_strategy import AiFactorySourceStrategy
 from src.knowledge.store import PgVectorStore
 from src.llm.client import OllamaClient
 from src.llm.embedder import OllamaEmbedder
+from src.reasoning.localizer import PivotLocalizer
 from src.reasoning.reasoner import Reasoner
 from src.reasoning.remaining_prompt import RemainingPromptBuilder
+from src.reasoning.translator import LLMTranslator
 from src.routing.resolver import DeliveryPlanResolver
 
 INGESTION_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "src" / "ingestion" / "schema.sql"
@@ -90,6 +92,8 @@ async def _run(schedule_name: str) -> None:
             mirror, resolver, reasoner, collector, strategy, llm, remaining_prompt
         )
 
+        localizer = PivotLocalizer(reasoner, LLMTranslator(llm), pivot=settings.pivot_lang)
+
         schedule = schedule_by_name(settings.report_schedules, schedule_name)
         report = report_for_schedule(
             schedule,
@@ -122,7 +126,8 @@ async def _run(schedule_name: str) -> None:
                 canonical = resolve_canonical_ref(repo, settings.canonical_refs, mirror)
                 plan = plan_resolver.resolve(org_id, repo, canonical)
 
-                text = await report.build(repo, org_id, lang=plan.language)
+                notes = await localizer.report_notes(report, repo, org_id, {plan.language})
+                text = notes.get(plan.language)
                 if text is None:
                     logger.info(
                         "report repo=%s org_id=%s schedule=%s status=skipped-empty",

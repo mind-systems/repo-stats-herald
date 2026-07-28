@@ -157,6 +157,28 @@ class FakeTranslator(Translator):
         return f"translated:{target_lang}:{source_lang}"
 
 
+class FakeReport:
+    """Minimal stand-in for the `ReportProtocol` shape a `Localizer` calls —
+    records every `(repo, org_id, lang)` call and returns a deterministic
+    per-lang marker by default, or the configurable `result` when set (e.g.
+    `None` to exercise the empty-report edge — distinguished from "unset" via
+    the `_UNSET` sentinel, so `result = None` is honored). Not a
+    `changelog.Report` import: this only needs to satisfy the structural
+    `build` method."""
+
+    _UNSET = object()
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, int, str]] = []
+        self.result: str | None | object = self._UNSET
+
+    async def build(self, repo: str, org_id: int, lang: str = "ru") -> str | None:
+        self.calls.append((repo, org_id, lang))
+        if self.result is self._UNSET:
+            return f"report:{lang}"
+        return self.result
+
+
 @pytest.fixture
 def fake_embedder() -> FakeEmbedder:
     return FakeEmbedder()
@@ -190,6 +212,11 @@ def fake_narrating_reasoner() -> FakeNarratingReasoner:
 @pytest.fixture
 def fake_translator() -> FakeTranslator:
     return FakeTranslator()
+
+
+@pytest.fixture
+def fake_report() -> FakeReport:
+    return FakeReport()
 
 
 @pytest.fixture
