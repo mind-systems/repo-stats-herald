@@ -18,6 +18,7 @@ Phases 1–12 ship: push ingestion behind a GitHub App, the repo mirror, both me
 ```bash
 make install    # uv sync
 make run        # uvicorn src.main:app --reload --port 8000
+make test       # uv run pytest
 make tunnel     # SSH-forward Ollama to localhost:11434 (idempotent; params from .env.dev)
 make dev        # tunnel + summarize HEAD~3..HEAD of this repo
 make eval       # tunnel + run the eval harness
