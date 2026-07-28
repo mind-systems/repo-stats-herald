@@ -5,12 +5,15 @@ from datetime import datetime
 from src.commits.models import Commit, CommitContext
 
 # Literal git placeholder text for the --pretty=format argument: git itself expands
-# %x1e/%x00 into actual RS/NUL bytes in its output. These must stay literal text here —
-# embedding real NUL bytes in the CLI argument would break process creation.
-_PRETTY_FORMAT = "%x1e%H%x00%an%x00%s%x00%b%x00"
+# %x00 into actual NUL bytes in its output. These must stay literal text here —
+# embedding a real NUL byte in the CLI argument would break process creation.
+# Every field is NUL-delimited, including the leading marker before %H: a commit
+# message cannot contain NUL, so it is the one byte that can frame a record without
+# being forgeable from inside a subject or body.
+_PRETTY_FORMAT = "%x00%H%x00%an%x00%s%x00%b%x00"
 
-# Actual RS/NUL bytes as they appear in git's stdout, used to split the output above.
-_RECORD_SEP = "\x1e"
+# Actual NUL byte as it appears in git's stdout, used both to delimit fields within
+# a record and to find record boundaries in the output above.
 _FIELD_SEP = "\x00"
 
 _NUMSTAT_RE = re.compile(r"^(?:\d+|-)\t(?:\d+|-)\t(.+)$")
@@ -309,11 +312,26 @@ class GitCommitCollector:
         """Parse raw `git log` text (record framing, field splitting,
         numstat/shortstat reading) into a `CommitContext`, without shelling
         out or touching the filesystem. `repo`/`branch` are label strings
-        written straight into the returned context."""
+        written straight into the returned context.
+
+        A commit message cannot contain NUL, and neither can a filesystem
+        path nor the numstat/shortstat tail, so the only NUL bytes in the
+        whole log are the ones `_PRETTY_FORMAT` emits from `%x00`. Splitting
+        on NUL therefore yields a clean, uniform stream of five fields per
+        record (`H, an, s, b, tail`), preceded by one empty leading field
+        from the very first record's marker. Each group of five is
+        reconstructed as NUL-joined text and handed to `_parse_record`
+        unchanged, so an `\\x1e` byte inside a subject or body is now
+        ordinary field content rather than a forgeable record boundary.
+        """
+        fields = log_text.split(_FIELD_SEP)
+        if fields and fields[0] == "":
+            fields = fields[1:]
+
         commits = []
-        for record in log_text.split(_RECORD_SEP):
-            if not record.strip():
-                continue
+        for i in range(0, len(fields), 5):
+            group = fields[i : i + 5]
+            record = _FIELD_SEP.join(group)
             commit = self._parse_record(record)
             if commit is not None:
                 commits.append(commit)

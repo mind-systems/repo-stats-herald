@@ -162,3 +162,33 @@ def test_new_commits_returns_staging_unique_non_merge_commits(git_repo, commit_a
     result = collector.new_commits(str(git_repo), base_sha, staging_sha, _TRUNK)
 
     assert result == (staging_sha,)
+
+
+def test_collect_keeps_a_commit_whose_subject_contains_the_record_separator_byte(git_repo, commit_at, collector):
+    commit_at(git_repo, "first commit")
+    _git(
+        "-c", "user.name=herald-test",
+        "-c", "user.email=herald@test.invalid",
+        "commit", "-q", "--allow-empty", "-m", "sub\x1eject",
+        cwd=git_repo,
+    )
+
+    ctx = collector.collect(str(git_repo), "HEAD")
+
+    assert len(ctx.commits) == 2
+    assert "\x1e" in ctx.commits[0].message
+
+
+def test_collect_keeps_a_commit_whose_body_contains_the_record_separator_byte(git_repo, commit_at, collector):
+    commit_at(git_repo, "first commit")
+    _git(
+        "-c", "user.name=herald-test",
+        "-c", "user.email=herald@test.invalid",
+        "commit", "-q", "--allow-empty", "-m", "subject", "-m", "bo\x1edy",
+        cwd=git_repo,
+    )
+
+    ctx = collector.collect(str(git_repo), "HEAD")
+
+    assert len(ctx.commits) == 2
+    assert "\x1e" in ctx.commits[0].message
