@@ -1,6 +1,7 @@
 import logging
 
 from src.github.mirror import RepoMirror
+from src.graph.coordination import CoordinationSeeder
 from src.ingestion.models import PushEvent
 from src.knowledge.indexer import ArtifactIndexer
 from src.knowledge.source_strategy import SourceStrategy
@@ -23,11 +24,13 @@ class KnowledgeSync:
         indexer: ArtifactIndexer,
         strategy: SourceStrategy,
         canonical_refs: dict[str, str],
+        seeder: CoordinationSeeder | None = None,
     ) -> None:
         self._mirror = mirror
         self._indexer = indexer
         self._strategy = strategy
         self._canonical_refs = canonical_refs
+        self._seeder = seeder
 
     def _canonical_ref(self, repo: str) -> str:
         override = self._canonical_refs.get(repo)
@@ -49,6 +52,9 @@ class KnowledgeSync:
                 seen += 1
 
         logger.info("backfill complete: repo=%s ref=%s files_seen=%d", repo, canonical, seen)
+
+        if self._seeder is not None:
+            await self._seeder.seed(repo, org_id)
 
     async def on_push(self, push: PushEvent) -> None:
         self._mirror.ensure(push.repo, push.org_id)
@@ -87,3 +93,6 @@ class KnowledgeSync:
             indexed,
             removed,
         )
+
+        if self._seeder is not None:
+            await self._seeder.seed(push.repo, push.org_id)

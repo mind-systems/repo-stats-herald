@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Callable
 
 from src.graph.models import Edge, EdgeKind
@@ -60,3 +61,39 @@ async def test_idempotent_config_reload(
     edges = await store.edges_from("a")
     matching = [edge for edge in edges if edge.to_repo == "b" and edge.kind == EdgeKind.CONTRACT]
     assert len(matching) == 1
+
+
+async def test_replace_seed_edges_swaps_the_seed_set_leaving_config_untouched(
+    store: PgProjectGraph, make_edge: Callable[..., Edge]
+) -> None:
+    config_edge = make_edge(from_repo="a", to_repo="b", kind=EdgeKind.CONTRACT, source="config")
+    old_seed_edge = make_edge(from_repo="a", to_repo="c", kind=EdgeKind.DEPENDENCY, source="seed")
+    await store.add_edge(config_edge)
+    await store.add_edge(old_seed_edge)
+
+    new_seed_edge = make_edge(from_repo="a", to_repo="d", kind=EdgeKind.AUTH, source="seed")
+    await store.replace_seed_edges("a", [new_seed_edge])
+
+    edges = await store.edges_from("a")
+    by_repo = {edge.to_repo: edge.source for edge in edges}
+    assert by_repo == {"b": "config", "d": "seed"}
+
+
+async def test_replace_seed_edges_concurrent_calls_serialize_to_one_full_set(
+    store: PgProjectGraph,
+) -> None:
+    set_a = [
+        Edge(from_repo="a", to_repo=f"a{i}", kind=EdgeKind.DEPENDENCY, source="seed") for i in range(5)
+    ]
+    set_b = [
+        Edge(from_repo="a", to_repo=f"b{i}", kind=EdgeKind.DEPENDENCY, source="seed") for i in range(5)
+    ]
+
+    await asyncio.gather(
+        store.replace_seed_edges("a", set_a),
+        store.replace_seed_edges("a", set_b),
+    )
+
+    edges = await store.edges_from("a")
+    to_repos = {edge.to_repo for edge in edges}
+    assert to_repos == {edge.to_repo for edge in set_a} or to_repos == {edge.to_repo for edge in set_b}

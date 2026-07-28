@@ -32,6 +32,17 @@ class ProjectGraph(ABC):
         `config` rows untouched."""
         ...
 
+    @abstractmethod
+    async def replace_seed_edges(self, from_repo: str, edges: list[Edge]) -> None:
+        """Atomically replace `from_repo`'s entire `source='seed'` set: delete
+        its prior seed rows and insert `edges` in one transaction, so a
+        re-seed never leaves a partial set. `config` rows are never touched.
+        A seed edge colliding with an existing `config` edge on the same
+        `(from_repo, to_repo, kind)` triple does nothing (the config edge
+        wins). Concurrent replaces for the same `from_repo` serialize —
+        never interleave into a partial/duplicated set."""
+        ...
+
 
 class PgProjectGraph(ProjectGraph):
     def __init__(self, pool: asyncpg.Pool) -> None:
@@ -86,3 +97,27 @@ class PgProjectGraph(ProjectGraph):
                 "DELETE FROM project_edges WHERE from_repo = $1 AND source = 'seed'",
                 from_repo,
             )
+
+    async def replace_seed_edges(self, from_repo: str, edges: list[Edge]) -> None:
+        async with self._pool.acquire() as conn, conn.transaction():
+            # Serializes concurrent replaces for the same repo so they queue
+            # rather than interleave into a partial/duplicated set.
+            await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))", from_repo)
+
+            await conn.execute(
+                "DELETE FROM project_edges WHERE from_repo = $1 AND source = 'seed'",
+                from_repo,
+            )
+
+            for edge in edges:
+                await conn.execute(
+                    """
+                    INSERT INTO project_edges (from_repo, to_repo, kind, source)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (from_repo, to_repo, kind) DO NOTHING
+                    """,
+                    edge.from_repo,
+                    edge.to_repo,
+                    edge.kind.value,
+                    edge.source,
+                )

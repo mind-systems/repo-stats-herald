@@ -14,6 +14,8 @@ from src.core.config import get_settings
 from src.core.db import create_pool
 from src.github.app_auth import GitHubAppAuth
 from src.github.mirror import RepoMirror
+from src.graph.coordination import CoordinationSeeder
+from src.graph.store import PgProjectGraph
 from src.knowledge.indexer import ArtifactIndexer
 from src.knowledge.source_strategy import AiFactorySourceStrategy
 from src.knowledge.store import PgVectorStore
@@ -21,6 +23,7 @@ from src.knowledge.sync import KnowledgeSync
 from src.llm.embedder import OllamaEmbedder
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "src" / "knowledge" / "schema.sql"
+GRAPH_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "src" / "graph" / "schema.sql"
 
 
 def parse_args() -> argparse.Namespace:
@@ -38,6 +41,7 @@ async def _run(repo: str, org_id: int) -> None:
     try:
         async with pool.acquire() as conn:
             await conn.execute(SCHEMA_PATH.read_text())
+            await conn.execute(GRAPH_SCHEMA_PATH.read_text())
 
         embedder = OllamaEmbedder(settings.ollama_url, settings.embed_model, settings.ollama_api_key)
         store = PgVectorStore(pool)
@@ -54,7 +58,9 @@ async def _run(repo: str, org_id: int) -> None:
             return f"https://github.com/{login}/{repo}.git"
 
         mirror = RepoMirror(Path(settings.mirror_root), auth, clone_source)
-        sync = KnowledgeSync(mirror, indexer, strategy, settings.canonical_refs)
+        graph = PgProjectGraph(pool)
+        seeder = CoordinationSeeder(mirror, graph, settings.canonical_refs)
+        sync = KnowledgeSync(mirror, indexer, strategy, settings.canonical_refs, seeder)
 
         await sync.backfill(repo, org_id)
     finally:

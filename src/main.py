@@ -12,6 +12,7 @@ from src.episodic.linked_change import LinkedChangeResolver
 from src.episodic.store import PgEpisodicStore
 from src.github.app_auth import GitHubAppAuth
 from src.github.mirror import RepoMirror
+from src.graph.coordination import CoordinationSeeder
 from src.graph.models import Edge, EdgeKind
 from src.graph.store import PgProjectGraph
 from src.ingestion.router import router as ingestion_router
@@ -73,7 +74,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         mirror = RepoMirror(Path(settings.mirror_root), auth, clone_source)
         mirror.sweep_worktrees()
 
-        app.state.knowledge_sync = KnowledgeSync(mirror, indexer, strategy, settings.canonical_refs)
+        seeder = CoordinationSeeder(mirror, graph, settings.canonical_refs)
+        app.state.knowledge_sync = KnowledgeSync(
+            mirror, indexer, strategy, settings.canonical_refs, seeder
+        )
 
         episodic_store = PgEpisodicStore(pool)
         collector = GitCommitCollector()
