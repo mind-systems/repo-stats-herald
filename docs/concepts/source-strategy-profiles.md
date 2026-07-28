@@ -1,6 +1,6 @@
 # Source-Strategy Profiles (concept)
 
-A forward-looking design. Today Herald ships a single source strategy — the default ai-factory profile (see [architecture.md](../architecture.md) and [understanding.md](../behavior/understanding.md)). This concept describes how that one strategy becomes a **plugin system of profiles** when a second project shape needs its own. It is written as the target contract; it is not built, and nothing here is a commitment to build it before a second project shape makes it earn its place.
+A forward-looking design. Today Herald ships two concrete source strategies — the default ai-factory profile and a code-only profile — each wired at a composition root rather than resolved through a registry (see [architecture.md](../architecture.md) and [understanding.md](../behavior/understanding.md)). This concept describes how those strategies become a **plugin system of profiles** when a third project shape needs its own. It is written as the target contract; it is not built, and nothing here is a commitment to build it before a third project shape makes it earn its place.
 
 ## Why
 
@@ -52,6 +52,6 @@ Profiles are a registry of named strategies behind one interface. A new project 
 
 ## Non-goals and when to build
 
-- Today only the **ai-factory** default and the **commits-only** floor are needed. The registry, auto-detection, and additional profiles land when a **second real project shape** must be served — the "extract after the second integration" discipline.
+- The **ai-factory** default, the **code-only** profile, and the **commits-only** floor cover every shape served today, each chosen at a composition root. The registry, auto-detection, and additional profiles land when a **third real project shape** must be served, or sooner if profile selection has to be resolved at runtime rather than wired.
 - Profile configuration is operator config (the registry), part of the multi-tenant configuration evolution (see [configuration.md](../behavior/configuration.md)) — not a UI concern here.
 - The mirror stays generic: a profile decides only what is read from the complete local mirror, never how repos are fetched.

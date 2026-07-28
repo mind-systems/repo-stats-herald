@@ -52,9 +52,12 @@ that runs today.
 
 ## Status
 
-The summarization spike runs today: commit collection, the LLM boundary, and the
-summarizer, driven by hand through the CLI and checked by the eval harness. The
-understanding model (the two memories and the reasoner), reports, releases, and the
-internal protocol are specified and not built yet.
+Herald ingests pushes from a GitHub App installation, mirrors each served repository,
+and maintains the two memories behind its understanding — a semantic model of what a
+project is now and an episodic log of how it changed. It narrates a change through the
+reasoner, composes reports over a window, assigns versions from the repository's own
+tags, cuts GitHub releases, delivers to Telegram, and posts entries to an integrated
+changelog application. Production packaging, the conversational surface, historical
+replay, and multi-tenant operation are specified and not built yet.
 
 See [the specification](docs/behavior-overview.md) for how each part behaves.

@@ -44,7 +44,7 @@ Two engines sit over the stream.
 
 The stream is the source of truth; semantic memory is its current projection; episodic memory is its history. The derivation engine writes both; the reasoner reads both; both consult the source strategy. Retrieval is the access lens over either memory, not a property of one.
 
-Today one source-strategy profile ships (the ai-factory default); making the strategy a plugin system of per-project profiles is a forward-looking concept — [source-strategy profiles](concepts/source-strategy-profiles.md). Where a project exposes no curated artifacts, the derivation engine can derive understanding from code itself, distilled once and reviewed — [code-derived understanding](concepts/code-derived-understanding.md).
+Two source-strategy profiles ship today — the ai-factory default and a code-only profile — each wired at a composition root rather than resolved through a registry; turning the strategy into a registry of per-project profiles remains a forward-looking concept — [source-strategy profiles](concepts/source-strategy-profiles.md). Where a project exposes no curated artifacts, the derivation engine derives understanding from code itself, distilled once and reviewed — [code-derived understanding](concepts/code-derived-understanding.md).
 
 ## The flow
 

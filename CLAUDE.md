@@ -2,14 +2,14 @@ What the service does and how each part behaves is specified under [docs/behavio
 
 ## Status
 
-Only the summarization slice runs today: commit collection (`src/commits/`), the LLM boundary (`src/llm/`), and the summarizer (`src/summarization/`), wired by hand in `scripts/summarize_range.py` and exercised through the eval harness. `src/main.py` is a bare FastAPI app exposing `GET /health`. The webhook receiver, delivery, releases, and the internal protocol are specified but not built — treat their docs as the target contract, not existing code.
+Phases 1–12 ship: push ingestion behind a GitHub App, the repo mirror, both memories and their retrieval, the reasoner and narration, the reporting engine, versioning, GitHub releases, Telegram delivery, and the internal changelog protocol. `src/main.py` assembles all of it at startup and mounts the webhook receiver. Production packaging, the conversational surface, historical replay, and multi-tenant operation are specified but not built — treat their docs as the target contract, not existing code.
 
 ## Stack
 
-- **Python 3.12 · FastAPI / uvicorn** — the service (`/health` today; webhook receiver in the target)
+- **Python 3.12 · FastAPI / uvicorn** — the service: the GitHub webhook receiver and `GET /health`
 - **uv** — packaging and task runs
-- **Ollama** via **httpx** — LLM generation and, in the target, embeddings; over the SSH tunnel in dev, co-located in prod
-- **Postgres + pgvector** — Herald's own database: the knowledge store's vector search plus relational state (target; `herald_database` locally)
+- **Ollama** via **httpx** — LLM generation and embeddings; over the SSH tunnel in dev, co-located in prod
+- **Postgres + pgvector** — Herald's own database: the knowledge and episodic stores' vector search plus relational state (`herald_database` locally)
 - **pydantic-settings** — typed config from env (`src/core/config.py`)
 - **Telegram Bot API** — delivery (target)
 
@@ -50,13 +50,21 @@ Connection params live in `.env.dev` (`POSTGRES_*`); see `.env.example`. In prod
 |------|---------|
 | `src/core/` | Cross-cutting infra — `Settings` (pydantic-settings) + `get_settings()`; `create_pool()` (asyncpg pool with the pgvector `vector` codec) |
 | `src/llm/` | Model-agnostic LLM boundary — `LLMClient` (ABC) + `OllamaClient` (httpx) |
+| `src/github/` | GitHub App auth (`GitHubAppAuth`, per-org installation tokens with a single-flight cache) + `RepoMirror` (per-repo bare clone, one worktree per operation) |
 | `src/knowledge/` | `chunks` pgvector schema (`schema.sql`) + `Chunk` value object + `KnowledgeStore` (ABC) / `PgVectorStore` |
 | `src/episodic/` | `episodic_entries` pgvector schema (`schema.sql`, append-only) + `EpisodicEntry` value object + `EpisodicStore` (ABC) / `PgEpisodicStore` |
 | `src/commits/` | `Commit` / `CommitContext` value objects + `GitCommitCollector` (read-only `git log`) |
 | `src/summarization/` | `PromptBuilder` (prompt text) + `Summarizer` (orchestration) |
+| `src/ingestion/` | Webhook receiver — signature verification, push and installation parsing, `ServedRepoStore`, `EpisodicWriter`, background fan-out |
+| `src/graph/` | `project_edges` schema + `Edge` / `EdgeKind` + `ProjectGraph` (ABC) / `PgProjectGraph` + `CoordinationSeeder` |
+| `src/reasoning/` | `Reasoner` over both memories + the Q&A and narration prompt builders + `Localizer` (ABC) / `PivotLocalizer` / `NativeLocalizer` / `LLMTranslator` |
+| `src/routing/` | `BranchRole` + `role_for_branch` + `DeliveryPlan` / `DeliveryPlanResolver` |
+| `src/versioning/` | `Version` value object + `Versioner` — the next version from the repo's own tags, back-merge skip |
+| `src/changelog/` | Report engine — `Report`, the `ReportSection` implementations, `ReportWindow` (`TimeWindow`, `SinceDeployWindow`), and `release_report` |
+| `src/delivery/` | Channel clients — `TelegramClient`, `GitHubReleaseClient`, `ChangelogClient` — plus `DeliveryService` |
 | `scripts/` | Composition-root entrypoints for offline runs (`summarize_range`, `eval`) |
 | `evals/` | Eval fixtures, references, and outputs |
-| `src/main.py` | Web-app composition root — `GET /health` today; the webhook receiver in the target |
+| `src/main.py` | Web-app composition root — assembles every collaborator at startup and mounts the webhook receiver; also serves `GET /health` |
 
 ## Patterns to follow
 
@@ -69,7 +77,7 @@ Connection params live in `.env.dev` (`POSTGRES_*`); see `.env.example`. In prod
 
 ## Verification — eval harness
 
-Summary quality is checked against fixed cases, not eyeballed. `evals/cases.yaml` holds `{repo, range, lang}` cases, `evals/reference/<case>.md` holds user-authored good notes (never fabricated), and `make eval` writes one `evals/out/<case>.md` per case with stable filenames for diffing against the references. Run any prompt or model change through the harness.
+Summary quality is checked against fixed cases, not eyeballed. `evals/cases.yaml` holds cases that each declare a `type`; the runner dispatches by type to a registered handler and writes one `evals/out/<case>.md` per case, with stable filenames. Fields vary by type — a `summary` case carries `{repo, range, lang}`, a `distill` case a `root`, a `reasoner` case a `query`, a `localize` case a `langs` list. `evals/reference/<case>.md` holds user-authored good notes, never fabricated. The harness writes output and does not compare: a run's quality is judged by a person reading an output against its reference. Run any prompt or model change through the harness.
 
 ## Logging
 
@@ -81,6 +89,7 @@ The **architecture** — the intent→change→outcome model and the seams — i
 
 | Doc | What it covers |
 |-----|-----------------|
+| [Architecture](docs/architecture.md) | The domain shape — how pushes become understanding and narration |
 | [Overview](docs/behavior-overview.md) | Spec entrance — end-to-end flow, actors, design spine |
 | [Ingestion & Authorization](docs/behavior/ingestion.md) | GitHub App webhook, installation as trust boundary, serve-allowlist |
 | [Understanding](docs/behavior/understanding.md) | Per-project knowledge model (RAG) + the project graph |
@@ -90,3 +99,9 @@ The **architecture** — the intent→change→outcome model and the seams — i
 | [Replay](docs/behavior/replay.md) | Backtest over an existing history — simulated time, active-day reports, tag milestones |
 | [Delivery](docs/behavior/delivery.md) | Branch role, channels, delivery plan, versioning, internal protocol |
 | [Configuration](docs/behavior/configuration.md) | The resolver seam, global settings, database, multi-tenant evolution |
+| [Code-derived understanding](docs/concepts/code-derived-understanding.md) | How a code-only project is understood at feature level, not classes |
+| [Derivation modes](docs/concepts/derivation-modes.md) | Refines how the derivation engine chooses its source over a repo's history |
+| [Intent distillation](docs/concepts/intent-distillation.md) | Distills a change's intent once at ingest when no anchor exists |
+| [Product scope](docs/concepts/product-scope.md) | Introduces a product grouping and a multi-tenant ownership root |
+| [Source-strategy profiles](docs/concepts/source-strategy-profiles.md) | How source strategies become a registry when a third shape appears |
+| [Version increment policy](docs/concepts/version-increment-policy.md) | Turns the fixed version increment into a reasoner-judged policy seam |

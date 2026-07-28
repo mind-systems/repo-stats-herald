@@ -43,6 +43,8 @@ The Telegram and GitHub-release languages are single-value defaults today (RU an
 
 Telegram carries the reports (daily and weekly) and the staging/release milestone announcements; it is not sent per push. The message language defaults to Russian, resolved through the config seam. A report is a plain notification with no version header. A `staging` or `release` milestone carries a version header (`v1.2.0-rc` or `v1.2.0`) and the same body as the release notes delivered elsewhere — the milestone announcement and the GitHub release read as the same text, differing only by the header and the rc/release marker.
 
+A message longer than Telegram's per-message limit of 4096 is split into ordered parts, sent in sequence, whose concatenation is exactly the original text — nothing dropped, duplicated, or reordered. The limit counts UTF-16 code units rather than characters as a reader would count them: every character outside the Basic Multilingual Plane costs two, so a message dense in such characters reaches the limit sooner than its visible length suggests.
+
 ### GitHub release
 
 On `staging` and `release`, Herald cuts a GitHub release on the same repository the push came from, in English by default. No mapping is needed: the repository is known from the push and the App installation already grants the access. Staging produces a pre-release, the default branch produces a full release.
@@ -76,6 +78,8 @@ Herald assigns a version to every staging and default-branch push that carries n
 
 Every push to `staging` cuts a release candidate: it advances the version from the latest version tag and carries a `-rc` suffix. Successive staging pushes advance it each time — `v1.2.1-rc`, then `v1.2.2-rc` — since each is a distinct test build.
 
+The first push to a newly created `staging` branch is a staging push like any other. It carries no prior commit on that branch behind it, and it cuts that branch's first candidate rather than being read as introducing nothing.
+
 A push to the default branch (`master`/`main`) is one of two things:
 
 | Case | What it is | Version | GitHub artifact |
@@ -92,6 +96,8 @@ Version derivation reads the mirror's tags and history, so it holds `staging` an
 ### Back-merge detection
 
 A back-merge from the default branch into staging carries commits that are already part of the released history. Herald detects this — the push introduces no new work of its own beyond what the default branch already carries (a merge commit that only pulls the default branch down brings nothing new) — and skips the version bump, so a back-merge does not manufacture a spurious release candidate. Only genuinely new work on staging advances the version.
+
+Detection rests on reading what the push introduces beyond the default branch. Where that reading cannot be performed at all — an unreadable mirror, a reference that does not resolve — the outcome is an error rather than a silent skip: a version is never withheld on the strength of a question that was never answered.
 
 ### Where the version flows
 

@@ -3,8 +3,9 @@
 Herald is a service that stands between an organization's development process and the
 people who need to hear about it. It watches pushes across an organization's
 repositories, builds a standing understanding of each project from its own curated
-docs, and narrates how its features progress with a local LLM — as periodic reports
-and as release notes, delivered to the channels each fits.
+docs — or, where none exist, from its code — and narrates how its features progress
+with a local LLM — as periodic reports and as release notes, delivered to the
+channels each fits.
 
 ## End-to-end flow
 

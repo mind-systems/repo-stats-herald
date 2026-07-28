@@ -4,8 +4,9 @@ A forward-looking design. Today Herald builds its knowledge model from a project
 curated artifacts — the human-written roadmap, architecture, and docs (see
 [understanding.md](../behavior/understanding.md)). This concept describes how a project
 that has **no such artifacts** — only code — is still understood at the level of
-features, not classes. It is written as the target contract; it is not built, and
-nothing here commits to building it before a code-only project must be served.
+features, not classes. This mode ships: the source strategy that selects a
+code-only project's files and the distiller that turns them into feature-level
+prose both exist, and this document is the contract they answer to.
 
 ## The problem it answers
 

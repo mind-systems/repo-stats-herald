@@ -48,6 +48,7 @@ Herald's own part is the curated corpus, the freshness discipline below, and the
 
 The store is slaved to the artifacts in git — Herald keeps a **local mirror** of each served repo (a full clone, pulled on each push, using the installation token as the git credential), so it indexes the repo's real current files and neither drifts from them nor grows without bound:
 
+- When a repository starts being served, Herald indexes its current artifacts in one initial pass, so the model is complete from the moment the repository is added rather than filling in as files happen to change.
 - On ingest (see [ingestion.md](ingestion.md)), Herald pulls the mirror and re-embeds only the artifact files the push changed.
 - Chunks are keyed by `(repo, path)`, so a changed file's new chunks replace its old ones — superseded content is removed, not accumulated.
 - The store indexes the current state of the artifacts, not their history — its size tracks how many docs a project has now, not how long it has existed.
