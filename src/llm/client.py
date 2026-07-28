@@ -35,4 +35,15 @@ class OllamaClient(LLMClient):
                 headers=headers,
             )
             response.raise_for_status()
-            return response.json()["response"]
+            body = response.json()
+
+        if not isinstance(body, dict):
+            raise ValueError("Ollama generate response was not a JSON object")
+        if "response" not in body:
+            raise ValueError("Ollama generate response is missing 'response'")
+
+        text = body["response"]
+        if not text.strip():
+            raise ValueError("Ollama generate response text was empty")
+
+        return text
