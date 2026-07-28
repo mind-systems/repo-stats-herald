@@ -1,0 +1,75 @@
+openapi: 3.1.0
+info:
+  title: Herald internal changelog protocol
+  description: >
+    The two-endpoint contract between Herald and an integrated app's
+    changelog receiver. Reachable only over the internal network — no
+    security scheme, no API key.
+  version: "1.0.0"
+paths:
+  /internal/changelog/config:
+    get:
+      operationId: getChangelogConfig
+      summary: Declare the languages the app accepts changelog entries in.
+      responses:
+        "200":
+          description: The app's declared languages.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangelogConfig"
+  /internal/changelog/entry:
+    post:
+      operationId: postChangelogEntry
+      summary: Deliver one changelog entry for a released version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangelogEntry"
+      responses:
+        "201":
+          description: Entry accepted.
+components:
+  schemas:
+    ChangelogConfig:
+      type: object
+      required:
+        - languages
+      properties:
+        languages:
+          type: array
+          items:
+            type: string
+    ChangelogEntry:
+      type: object
+      required:
+        - version
+        - environment
+        - summaries
+        - github_url
+      properties:
+        version:
+          type: string
+          description: >
+            The canonical `v`-prefixed `Version.__str__` render — the same
+            token used everywhere else (GitHub tag, Telegram header). Never
+            stripped or reformatted.
+          example: "v1.2.0"
+        environment:
+          type: string
+          enum:
+            - staging
+            - production
+        summaries:
+          type: object
+          additionalProperties:
+            type: string
+          description: >
+            One entry per language the app declared via `GET
+            /internal/changelog/config` — no language is fixed in this
+            schema.
+        github_url:
+          type: string
+          format: uri

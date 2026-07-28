@@ -60,6 +60,32 @@ def test_resolve_returns_none_channel_for_unmapped_org():
     assert plan.language == "ru"
 
 
+def test_resolve_maps_bare_repo_to_its_changelog_base_url():
+    resolver = DeliveryPlanResolver(
+        Settings(
+            github_webhook_secret="x",
+            telegram_bot_token="x",
+            repo_apps={"repo": "https://app.example.com"},
+        )
+    )
+
+    plan = resolver.resolve(org_id=1, repo="repo", branch="main")
+    assert plan.changelog_base_url == "https://app.example.com"
+
+
+def test_resolve_returns_none_changelog_base_url_for_unmapped_repo():
+    resolver = DeliveryPlanResolver(
+        Settings(
+            github_webhook_secret="x",
+            telegram_bot_token="x",
+            repo_apps={"repo": "https://app.example.com"},
+        )
+    )
+
+    plan = resolver.resolve(org_id=1, repo="other-repo", branch="main")
+    assert plan.changelog_base_url is None
+
+
 def test_telegram_channels_json_string_parses_to_int_keys():
     settings = Settings(
         github_webhook_secret="x", telegram_bot_token="x", telegram_channels='{"1": "-100123"}'

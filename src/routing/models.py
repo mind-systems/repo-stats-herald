@@ -14,5 +14,6 @@ class DeliveryPlan:
     is_release: bool
     is_prerelease: bool
     telegram_channel: str | None = None
+    changelog_base_url: str | None = None
     language: str = "ru"
     github_release_language: str = "en"

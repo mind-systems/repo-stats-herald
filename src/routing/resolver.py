@@ -24,5 +24,6 @@ class DeliveryPlanResolver:
             is_release=branch_role is BranchRole.RELEASE,
             is_prerelease=branch_role is BranchRole.STAGING,
             telegram_channel=self._settings.telegram_channels.get(org_id),
+            changelog_base_url=self._settings.repo_apps.get(repo),
             language="ru",
         )

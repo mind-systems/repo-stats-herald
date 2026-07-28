@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     canonical_refs: Annotated[dict[str, str], NoDecode] = {}
     github_org_logins: Annotated[dict[int, str], NoDecode] = {}
     telegram_channels: Annotated[dict[int, str], NoDecode] = {}
+    repo_apps: Annotated[dict[str, str], NoDecode] = {}
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_user: str = "herald_username"
@@ -56,7 +57,9 @@ class Settings(BaseSettings):
         tokens = str(value).split(",")
         return frozenset(int(token) for token in (t.strip() for t in tokens) if token)
 
-    @field_validator("canonical_refs", "github_org_logins", "telegram_channels", mode="before")
+    @field_validator(
+        "canonical_refs", "github_org_logins", "telegram_channels", "repo_apps", mode="before"
+    )
     @classmethod
     def _parse_json_dict(cls, value: object) -> object:
         if isinstance(value, dict):
