@@ -24,9 +24,15 @@ import yaml
 
 from src.commits.collector import GitCommitCollector
 from src.core.config import get_settings
+from src.core.db import create_pool
+from src.episodic.store import PgEpisodicStore
 from src.knowledge.code_distiller import CodeDistiller
 from src.knowledge.code_source_strategy import CodeSourceStrategy
+from src.knowledge.store import PgVectorStore
 from src.llm.client import OllamaClient
+from src.llm.embedder import OllamaEmbedder
+from src.reasoning.prompt import ReasoningPromptBuilder
+from src.reasoning.reasoner import Reasoner
 from src.summarization.prompt import PromptBuilder
 from src.summarization.service import Summarizer
 
@@ -92,6 +98,16 @@ class DistillCaseHandler(CaseHandler):
         return await self._distiller.distill(inputs["repo"], selected, root)
 
 
+class ReasonerCaseHandler(CaseHandler):
+    """Runs the `reasoner` case type through the production Reasoner flow."""
+
+    def __init__(self, reasoner: Reasoner) -> None:
+        self._reasoner = reasoner
+
+    async def run(self, inputs: dict) -> str:
+        return await self._reasoner.answer(inputs["query"], inputs.get("repo"))
+
+
 class EvalRunner:
     """Dispatches eval cases to their registered handler and writes outputs."""
 
@@ -129,8 +145,10 @@ def _load_cases() -> list[Case]:
     return cases
 
 
-def main() -> None:
+async def _run() -> None:
+    cases = _load_cases()
     settings = get_settings()
+
     collector = GitCommitCollector()
     summarizer = Summarizer(
         OllamaClient(settings.ollama_url, settings.ollama_model, settings.ollama_api_key),
@@ -143,10 +161,30 @@ def main() -> None:
         "summary": SummaryCaseHandler(summarizer, collector),
         "distill": DistillCaseHandler(distiller, CodeSourceStrategy()),
     }
-    runner = EvalRunner(handlers)
 
-    cases = _load_cases()
-    asyncio.run(runner.run(cases))
+    pool = None
+    try:
+        if any(case.type == "reasoner" for case in cases):
+            pool = await create_pool(settings.postgres_dsn)
+            reasoner = Reasoner(
+                llm=OllamaClient(settings.ollama_url, settings.ollama_model, settings.ollama_api_key),
+                embedder=OllamaEmbedder(settings.ollama_url, settings.embed_model, settings.ollama_api_key),
+                knowledge=PgVectorStore(pool),
+                episodic=PgEpisodicStore(pool),
+                reasoner_k=settings.reasoner_k,
+                prompt=ReasoningPromptBuilder(),
+            )
+            handlers["reasoner"] = ReasonerCaseHandler(reasoner)
+
+        runner = EvalRunner(handlers)
+        await runner.run(cases)
+    finally:
+        if pool is not None:
+            await pool.close()
+
+
+def main() -> None:
+    asyncio.run(_run())
 
 
 if __name__ == "__main__":

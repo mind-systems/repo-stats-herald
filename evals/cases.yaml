@@ -23,3 +23,16 @@ cases:
     type: distill
     repo: tradeoxy-core
     root: /Users/max/projects/tradeoxy/tradeoxy_core
+
+  # `repo` is the bare push.repo key under which repo-stats-herald's own
+  # knowledge and episodic entries are stored — populate both stores first
+  # via `uv run python -m scripts.backfill_episodic --repo repo-stats-herald
+  # --org-id 244165546` (knowledge backfill likewise) before `make eval`
+  # yields a grounded answer instead of the honest no-memory path. `make eval`
+  # writes evals/out/herald-self-query.md; the comparison reference
+  # evals/reference/herald-self-query.md is user-authored — never fabricated
+  # by the implementer, same discipline as the summarization/distillation evals.
+  - name: herald-self-query
+    type: reasoner
+    repo: repo-stats-herald
+    query: What has changed recently in repo-stats-herald?
