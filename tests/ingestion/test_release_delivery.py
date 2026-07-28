@@ -6,9 +6,9 @@ version-headed Telegram note.
 
 Collaborators are driven directly with fakes — no real `RepoMirror`,
 `Versioner`, `PivotLocalizer`, `GitHubReleaseClient`, or `DeliveryService` —
-and no dependency on the not-yet-built changelog-app concrete types: the
-changelog client here is a lightweight stand-in exposing just the
-`config(base_url) -> object with .languages` shape the fan-out reads.
+and the changelog client here is a lightweight stand-in exposing the frozen
+`config(base_url) -> list[str]` / `entry(base_url, payload) -> None` shape
+the fan-out reads and calls.
 """
 
 from dataclasses import dataclass
@@ -111,22 +111,26 @@ class FakeDeliveryService:
         self.calls.append((plan, note, version))
 
 
-@dataclass
-class FakeChangelogConfig:
-    languages: list[str]
-
-
 class FakeChangelogClient:
-    def __init__(self, languages: list[str] | None = None, raises: bool = False) -> None:
+    def __init__(
+        self, languages: list[str] | None = None, raises: bool = False, entry_raises: bool = False
+    ) -> None:
         self._languages = languages or []
         self._raises = raises
+        self._entry_raises = entry_raises
         self.calls: list[str] = []
+        self.entries: list[tuple] = []
 
-    async def config(self, base_url: str) -> FakeChangelogConfig:
+    async def config(self, base_url: str) -> list[str]:
         self.calls.append(base_url)
         if self._raises:
             raise RuntimeError("changelog app unreachable")
-        return FakeChangelogConfig(self._languages)
+        return self._languages
+
+    async def entry(self, base_url: str, payload) -> None:
+        if self._entry_raises:
+            raise RuntimeError("changelog app unreachable at entry")
+        self.entries.append((base_url, payload))
 
 
 def _build_release_report(calls: list[str]):
@@ -282,3 +286,88 @@ async def test_unreachable_changelog_app_still_cuts_release_and_delivers() -> No
     localizer: FakeLocalizer = kwargs["localizer"]
     _, _, _, union = localizer.report_notes_calls[0]
     assert union == {"ru", "en"}
+
+    assert changelog_client.entries == []
+
+
+async def test_mapped_reachable_staging_push_posts_changelog_entry() -> None:
+    plan = FakePlan(language="ru", github_release_language="en", changelog_base_url="https://changelog.example")
+    notes = {"ru": "note-ru", "en": "note-en", "de": "note-de"}
+    changelog_client = FakeChangelogClient(languages=["ru", "en", "de"])
+    _, kwargs = _collaborators(
+        branch="staging", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
+    )
+
+    await _deliver_release(_event("staging"), **kwargs)
+
+    github_release_client: FakeGitHubReleaseClient = kwargs["github_release_client"]
+    [(_, _, _, _, _, _, _)] = github_release_client.calls
+    github_url = "https://github.com/example/repo/releases/tag/v1.2.0-rc"
+
+    [(base_url, entry)] = changelog_client.entries
+    assert base_url == "https://changelog.example"
+    assert entry.environment == "staging"
+    assert entry.version == str(VERSION)
+    assert entry.github_url == github_url
+    assert entry.summaries == {"ru": "note-ru", "en": "note-en", "de": "note-de"}
+
+
+async def test_mapped_release_push_posts_production_changelog_entry() -> None:
+    plan = FakePlan(language="ru", github_release_language="en", changelog_base_url="https://changelog.example")
+    notes = {"ru": "note-ru", "en": "note-en", "de": "note-de"}
+    changelog_client = FakeChangelogClient(languages=["ru", "en", "de"])
+    _, kwargs = _collaborators(
+        branch="main", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
+    )
+
+    await _deliver_release(_event("main"), **kwargs)
+
+    [(_, entry)] = changelog_client.entries
+    assert entry.environment == "production"
+
+
+async def test_unmapped_repo_posts_no_changelog_entry_but_still_delivers() -> None:
+    plan = FakePlan(language="ru", github_release_language="en", changelog_base_url=None)
+    notes = {"ru": "note-ru", "en": "note-en"}
+    changelog_client = FakeChangelogClient(languages=["ru", "en", "de"])
+    _, kwargs = _collaborators(
+        branch="staging", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
+    )
+
+    await _deliver_release(_event("staging"), **kwargs)
+
+    assert changelog_client.entries == []
+    assert changelog_client.calls == []
+    assert len(kwargs["github_release_client"].calls) == 1
+    assert len(kwargs["delivery_service"].calls) == 1
+
+
+async def test_app_unreachable_at_entry_still_delivered_and_raise_swallowed() -> None:
+    plan = FakePlan(language="ru", github_release_language="en", changelog_base_url="https://changelog.example")
+    notes = {"ru": "note-ru", "en": "note-en", "de": "note-de"}
+    changelog_client = FakeChangelogClient(languages=["ru", "en", "de"], entry_raises=True)
+    _, kwargs = _collaborators(
+        branch="staging", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
+    )
+
+    await _deliver_release(_event("staging"), **kwargs)
+
+    assert len(kwargs["github_release_client"].calls) == 1
+    assert len(kwargs["delivery_service"].calls) == 1
+    assert changelog_client.entries == []
+
+
+async def test_changelog_entry_reuses_config_and_report_notes_without_re_deriving() -> None:
+    plan = FakePlan(language="ru", github_release_language="en", changelog_base_url="https://changelog.example")
+    notes = {"ru": "note-ru", "en": "note-en", "de": "note-de"}
+    changelog_client = FakeChangelogClient(languages=["ru", "en", "de"])
+    kwargs_calls, kwargs = _collaborators(
+        branch="staging", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
+    )
+
+    await _deliver_release(_event("staging"), **kwargs)
+
+    assert len(changelog_client.entries) == 1
+    assert len(changelog_client.calls) == 1
+    localizer: FakeLocalizer = kwargs["localizer"]
+    assert len(localizer.report_notes_calls) == 1

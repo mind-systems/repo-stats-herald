@@ -11,12 +11,15 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from src.core.config import get_settings
+from src.delivery.changelog_client import ChangelogEntry
 from src.ingestion.models import InstallationEvent, PushCommit, PushEvent
 from src.routing.models import BranchRole
 from src.routing.resolver import role_for_branch
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+_ENVIRONMENT_BY_ROLE = {BranchRole.STAGING: "staging", BranchRole.RELEASE: "production"}
 
 
 async def _run_isolated(label: str, task: Callable[[PushEvent], Awaitable[None]], event: PushEvent) -> None:
@@ -44,13 +47,16 @@ async def _deliver_release(
     """Cuts the GitHub release and delivers the version-headed Telegram note
     for a staging/release push, resolving the required-language union once
     and building the release note once (`Localizer.report_notes`) so every
-    channel is fed from the same localization pass.
+    channel is fed from the same localization pass. When the pushed repo is
+    mapped to a changelog app and it is reachable, the release note is also
+    posted as a `ChangelogEntry` — the last leg of the fan-out, run after the
+    GitHub release and the Telegram send.
 
-    The changelog-app leg (`changelog_client` / `plan.changelog_base_url`) is
-    dormant until the changelog app itself is wired: when either is absent,
-    or the app is unreachable, the union stays the fixed-channel languages
-    and this delivery proceeds without it — an unreachable changelog app
-    never blocks the GitHub release or the Telegram delivery.
+    The changelog-app leg (`changelog_client` / `plan.changelog_base_url`)
+    degrades gracefully: when either is absent, or the app is unreachable at
+    `config` or `entry`, the union stays the fixed-channel languages and this
+    delivery proceeds without it — an unreachable changelog app never blocks
+    the GitHub release or the Telegram delivery.
     """
     role = role_for_branch(event.branch)
 
@@ -69,10 +75,11 @@ async def _deliver_release(
     union = {plan.language, plan.github_release_language}
     base_url = getattr(plan, "changelog_base_url", None)
     app_available = changelog_client is not None and bool(base_url)
+    declared_languages: list[str] = []
     if app_available:
         try:
-            config = await changelog_client.config(base_url)
-            union |= set(config.languages)
+            declared_languages = await changelog_client.config(base_url)
+            union |= set(declared_languages)
         except Exception:
             logger.exception("changelog app unreachable for repo=%s org_id=%s", event.repo, event.org_id)
             app_available = False
@@ -90,11 +97,24 @@ async def _deliver_release(
         event.after,
     )
     logger.info("github release created: repo=%s org_id=%s url=%s", event.repo, event.org_id, github_url)
-    # Extension point for the changelog channel: `github_url`, `union`,
-    # `notes`, and `app_available` are the locals a later `entry` call
-    # continues from — no such call is made yet.
 
     await delivery_service.deliver(plan, notes.get(plan.language) or "", version=version)
+
+    if app_available:
+        try:
+            await changelog_client.entry(
+                base_url,
+                ChangelogEntry(
+                    version=str(version),
+                    environment=_ENVIRONMENT_BY_ROLE[role],
+                    summaries={lang: notes[lang] or "" for lang in declared_languages},
+                    github_url=github_url,
+                ),
+            )
+        except Exception:
+            logger.exception(
+                "changelog entry failed for repo=%s org_id=%s", event.repo, event.org_id
+            )
 
 
 def _verify_signature(body: bytes, header: str | None, secret: str) -> bool:

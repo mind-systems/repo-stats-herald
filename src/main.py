@@ -10,6 +10,7 @@ from src.changelog.release import release_report
 from src.commits.collector import GitCommitCollector
 from src.core.config import get_settings
 from src.core.db import create_pool
+from src.delivery.changelog_client import ChangelogClient
 from src.delivery.github_release import GitHubReleaseClient
 from src.delivery.service import DeliveryService
 from src.delivery.telegram import TelegramClient
@@ -111,6 +112,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.versioner = Versioner(mirror, collector, settings.version_increment)
         app.state.github_release_client = GitHubReleaseClient(auth)
         app.state.delivery_service = DeliveryService(TelegramClient(settings.telegram_bot_token))
+        app.state.changelog_client = ChangelogClient()
         app.state.build_release_report = functools.partial(
             release_report, mirror=mirror, collector=collector, resolver=resolver, reasoner=reasoner
         )
