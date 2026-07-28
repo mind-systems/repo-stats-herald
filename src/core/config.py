@@ -1,9 +1,20 @@
 import json
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Annotated
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+
+@dataclass(frozen=True)
+class ReportSchedule:
+    """One named report schedule: a whole-day window and the ordered
+    section keys it composes."""
+
+    name: str
+    window: int
+    sections: tuple[str, ...]
 
 
 class Settings(BaseSettings):
@@ -34,6 +45,7 @@ class Settings(BaseSettings):
     project_edges: Annotated[tuple[tuple[str, str, str], ...], NoDecode] = ()
     reasoner_k: int = 8
     pivot_lang: str = "en"
+    report_schedules: Annotated[tuple[ReportSchedule, ...], NoDecode] = ()
 
     @field_validator("serve_allowlist", mode="before")
     @classmethod
@@ -73,6 +85,19 @@ class Settings(BaseSettings):
             to_repo, kind = rest.split(":", 1)
             triples.append((from_repo.strip(), to_repo.strip(), kind.strip().upper()))
         return tuple(triples)
+
+    @field_validator("report_schedules", mode="before")
+    @classmethod
+    def _parse_report_schedules(cls, value: object) -> object:
+        if isinstance(value, (tuple, list)) and all(isinstance(item, ReportSchedule) for item in value):
+            return tuple(value)
+        if not value:
+            return ()
+        parsed = json.loads(value)
+        return tuple(
+            ReportSchedule(name=o["name"], window=int(o["window"]), sections=tuple(o["sections"]))
+            for o in parsed
+        )
 
     @property
     def postgres_dsn(self) -> str:
