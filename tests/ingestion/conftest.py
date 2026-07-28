@@ -1,17 +1,32 @@
 import contextlib
-from collections.abc import Iterator
+import os
+from collections.abc import AsyncGenerator, Iterator
 from datetime import datetime
 from pathlib import Path
 
+import asyncpg
 import pytest
 
 from src.commits.models import Commit, CommitContext
+from src.core.db import create_pool
 from src.episodic.linked_change import LinkedChange
 from src.episodic.models import EpisodicEntry
 from src.episodic.store import EpisodicStore
 from src.ingestion.models import PushCommit, PushEvent
+from src.ingestion.served_repos import ServedRepoStore
 from src.ingestion.writer import EpisodicWriter
 from src.llm.embedder import Embedder
+
+SCHEMA_PATH = Path(__file__).resolve().parents[2] / "src" / "ingestion" / "schema.sql"
+
+
+def _dsn() -> str:
+    host = os.environ.get("POSTGRES_HOST", "localhost")
+    port = os.environ.get("POSTGRES_PORT", "5432")
+    user = os.environ.get("POSTGRES_USER", "herald_username")
+    password = os.environ.get("POSTGRES_PASSWORD", "herald_password")
+    db = os.environ.get("POSTGRES_DB", "herald_database")
+    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
 # --- Fakes -------------------------------------------------------------
 #
@@ -281,3 +296,19 @@ def make_writer(mirror: FakeMirror, embedder: FakeEmbedder, store: FakeStore):
         return EpisodicWriter(mirror, resolver, embedder, store, collector)
 
     return _make_writer
+
+
+@pytest.fixture
+async def pg_pool() -> AsyncGenerator[asyncpg.Pool, None]:
+    pool = await create_pool(_dsn())
+    schema = SCHEMA_PATH.read_text()
+    async with pool.acquire() as conn:
+        await conn.execute(schema)
+        await conn.execute("TRUNCATE served_repos")
+    yield pool
+    await pool.close()
+
+
+@pytest.fixture
+def served_store(pg_pool: asyncpg.Pool) -> ServedRepoStore:
+    return ServedRepoStore(pg_pool)
