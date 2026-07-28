@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import hmac
 import json
@@ -11,6 +12,8 @@ from fastapi.responses import JSONResponse
 
 from src.core.config import get_settings
 from src.ingestion.models import InstallationEvent, PushCommit, PushEvent
+from src.routing.models import BranchRole
+from src.routing.resolver import role_for_branch
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -24,6 +27,74 @@ async def _run_isolated(label: str, task: Callable[[PushEvent], Awaitable[None]]
         await task(event)
     except Exception:
         logger.exception("push background task failed: %s", label)
+
+
+async def _deliver_release(
+    event: PushEvent,
+    *,
+    mirror,
+    delivery_plan_resolver,
+    versioner,
+    build_release_report,
+    localizer,
+    github_release_client,
+    delivery_service,
+    changelog_client=None,
+) -> None:
+    """Cuts the GitHub release and delivers the version-headed Telegram note
+    for a staging/release push, resolving the required-language union once
+    and building the release note once (`Localizer.report_notes`) so every
+    channel is fed from the same localization pass.
+
+    The changelog-app leg (`changelog_client` / `plan.changelog_base_url`) is
+    dormant until the changelog app itself is wired: when either is absent,
+    or the app is unreachable, the union stays the fixed-channel languages
+    and this delivery proceeds without it — an unreachable changelog app
+    never blocks the GitHub release or the Telegram delivery.
+    """
+    role = role_for_branch(event.branch)
+
+    # First, never relying on `knowledge_sync` having ensured — background
+    # task order across the registered tasks is not a contract.
+    mirror.ensure(event.repo, event.org_id)
+
+    version = versioner.next(event.repo, role, event.before, event.after)
+    if version is None:
+        # A back-merge/skip case: no staging-unique work, nothing to cut,
+        # no version header to send.
+        return
+
+    plan = delivery_plan_resolver.resolve(event.org_id, event.repo, event.branch)
+
+    union = {plan.language, plan.github_release_language}
+    base_url = getattr(plan, "changelog_base_url", None)
+    app_available = changelog_client is not None and bool(base_url)
+    if app_available:
+        try:
+            config = await changelog_client.config(base_url)
+            union |= set(config.languages)
+        except Exception:
+            logger.exception("changelog app unreachable for repo=%s org_id=%s", event.repo, event.org_id)
+            app_available = False
+
+    report = build_release_report(event.repo, event.org_id, event.branch)
+    notes = await localizer.report_notes(report, event.repo, event.org_id, union)
+
+    github_url = await github_release_client.create(
+        event.org_id,
+        event.org_login,
+        event.repo,
+        version,
+        notes.get(plan.github_release_language) or "",
+        role is BranchRole.STAGING,
+        event.after,
+    )
+    logger.info("github release created: repo=%s org_id=%s url=%s", event.repo, event.org_id, github_url)
+    # Extension point for the changelog channel: `github_url`, `union`,
+    # `notes`, and `app_available` are the locals a later `entry` call
+    # continues from — no such call is made yet.
+
+    await delivery_service.deliver(plan, notes.get(plan.language) or "", version=version)
 
 
 def _verify_signature(body: bytes, header: str | None, secret: str) -> bool:
@@ -102,6 +173,31 @@ async def receive_github_webhook(
         episodic_writer = getattr(request.app.state, "episodic_writer", None)
         if episodic_writer is not None:
             background_tasks.add_task(_run_isolated, "episodic_writer.write", episodic_writer.write, event)
+
+        role = role_for_branch(event.branch)
+        if role in (BranchRole.STAGING, BranchRole.RELEASE):
+            state = request.app.state
+            collaborators = {
+                "mirror": getattr(state, "mirror", None),
+                "delivery_plan_resolver": getattr(state, "delivery_plan_resolver", None),
+                "versioner": getattr(state, "versioner", None),
+                "build_release_report": getattr(state, "build_release_report", None),
+                "localizer": getattr(state, "localizer", None),
+                "github_release_client": getattr(state, "github_release_client", None),
+                "delivery_service": getattr(state, "delivery_service", None),
+            }
+            if all(value is not None for value in collaborators.values()):
+                task = functools.partial(
+                    _deliver_release,
+                    changelog_client=getattr(state, "changelog_client", None),
+                    **collaborators,
+                )
+                background_tasks.add_task(_run_isolated, "release_delivery", task, event)
+            else:
+                logger.info(
+                    "release delivery skipped: required collaborators absent (org_id=%s repo=%s)",
+                    event.org_id, event.repo,
+                )
 
         return JSONResponse(content=jsonable_encoder(event))
 

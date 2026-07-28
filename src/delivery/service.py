@@ -2,6 +2,7 @@ import logging
 
 from src.delivery.telegram import TelegramClient
 from src.routing.models import DeliveryPlan
+from src.versioning.versioner import Version
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +16,9 @@ class DeliveryService:
     def __init__(self, client: TelegramClient) -> None:
         self._client = client
 
-    async def deliver(self, plan: DeliveryPlan, note: str) -> None:
+    async def deliver(self, plan: DeliveryPlan, note: str, version: "Version | None" = None) -> None:
         if plan.telegram_channel is None:
             logger.info("no telegram channel resolved for this delivery, skipping")
             return
-        await self._client.send(plan.telegram_channel, note)
+        text = f"{version}\n\n{note}" if version is not None else note
+        await self._client.send(plan.telegram_channel, text)

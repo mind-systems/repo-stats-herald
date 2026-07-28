@@ -1,3 +1,4 @@
+import functools
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -5,9 +6,13 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
+from src.changelog.release import release_report
 from src.commits.collector import GitCommitCollector
 from src.core.config import get_settings
 from src.core.db import create_pool
+from src.delivery.github_release import GitHubReleaseClient
+from src.delivery.service import DeliveryService
+from src.delivery.telegram import TelegramClient
 from src.episodic.linked_change import LinkedChangeResolver
 from src.episodic.store import PgEpisodicStore
 from src.github.app_auth import GitHubAppAuth
@@ -22,8 +27,13 @@ from src.knowledge.indexer import ArtifactIndexer
 from src.knowledge.source_strategy import AiFactorySourceStrategy
 from src.knowledge.store import PgVectorStore
 from src.knowledge.sync import KnowledgeSync
+from src.llm.client import OllamaClient
 from src.llm.embedder import OllamaEmbedder
+from src.reasoning.localizer import PivotLocalizer
+from src.reasoning.reasoner import Reasoner
+from src.reasoning.translator import LLMTranslator
 from src.routing.resolver import DeliveryPlanResolver
+from src.versioning.versioner import Versioner
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "ingestion" / "schema.sql"
 KNOWLEDGE_SCHEMA_PATH = Path(__file__).resolve().parent / "knowledge" / "schema.sql"
@@ -86,6 +96,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         collector = GitCommitCollector()
         resolver = LinkedChangeResolver(collector, strategy)
         app.state.episodic_writer = EpisodicWriter(mirror, resolver, embedder, episodic_store, collector)
+
+        app.state.mirror = mirror
+        llm = OllamaClient(settings.ollama_url, settings.ollama_model, settings.ollama_api_key)
+        reasoner = Reasoner(
+            llm=llm,
+            embedder=embedder,
+            knowledge=store,
+            episodic=episodic_store,
+            graph=graph,
+            reasoner_k=settings.reasoner_k,
+        )
+        app.state.localizer = PivotLocalizer(reasoner, LLMTranslator(llm), pivot=settings.pivot_lang)
+        app.state.versioner = Versioner(mirror, collector, settings.version_increment)
+        app.state.github_release_client = GitHubReleaseClient(auth)
+        app.state.delivery_service = DeliveryService(TelegramClient(settings.telegram_bot_token))
+        app.state.build_release_report = functools.partial(
+            release_report, mirror=mirror, collector=collector, resolver=resolver, reasoner=reasoner
+        )
     else:
         logger.warning("canonical-ref sync disabled: GitHub App, mirror, or org-login settings absent")
 
