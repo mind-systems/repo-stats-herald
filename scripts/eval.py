@@ -26,6 +26,7 @@ from src.commits.collector import GitCommitCollector
 from src.core.config import get_settings
 from src.core.db import create_pool
 from src.episodic.store import PgEpisodicStore
+from src.graph.store import PgProjectGraph
 from src.knowledge.code_distiller import CodeDistiller
 from src.knowledge.code_source_strategy import CodeSourceStrategy
 from src.knowledge.store import PgVectorStore
@@ -171,6 +172,7 @@ async def _run() -> None:
                 embedder=OllamaEmbedder(settings.ollama_url, settings.embed_model, settings.ollama_api_key),
                 knowledge=PgVectorStore(pool),
                 episodic=PgEpisodicStore(pool),
+                graph=PgProjectGraph(pool),
                 reasoner_k=settings.reasoner_k,
                 prompt=ReasoningPromptBuilder(),
             )

@@ -4,6 +4,8 @@ import pytest
 
 from src.episodic.models import EpisodicEntry
 from src.episodic.store import EpisodicStore
+from src.graph.models import Edge
+from src.graph.store import ProjectGraph
 from src.knowledge.store import Chunk, KnowledgeStore
 from src.llm.client import LLMClient
 from src.llm.embedder import Embedder
@@ -27,12 +29,19 @@ class FakeEmbedder(Embedder):
 
 class FakeKnowledgeStore(KnowledgeStore):
     """Configurable fake — `query` records its args and either returns the
-    preset `result` or raises the preset `error`, whichever is set."""
+    preset `result` or raises the preset `error`, whichever is set.
+
+    `results`/`errors` give per-`repo` control (keyed by the `repo` argument,
+    including `None` for org-wide discovery), consulted first and falling
+    back to the single `result`/`error` when a key is absent — so contract
+    tests that only ever set the single fields keep working unchanged."""
 
     def __init__(self) -> None:
         self.calls: list[tuple[list[float], int, str | None]] = []
         self.result: list[Chunk] = []
         self.error: Exception | None = None
+        self.results: dict[str | None, list[Chunk]] = {}
+        self.errors: dict[str | None, Exception] = {}
 
     async def upsert(self, repo: str, path: str, items: list[Chunk]) -> None:
         pass
@@ -42,9 +51,10 @@ class FakeKnowledgeStore(KnowledgeStore):
 
     async def query(self, embedding: list[float], k: int, repo: str | None = None) -> list[Chunk]:
         self.calls.append((embedding, k, repo))
-        if self.error is not None:
-            raise self.error
-        return self.result
+        error = self.errors.get(repo, self.error)
+        if error is not None:
+            raise error
+        return self.results.get(repo, self.result)
 
 
 class FakeEpisodicStore(EpisodicStore):
@@ -74,6 +84,36 @@ class FakeEpisodicStore(EpisodicStore):
 
     async def recorded_commit_shas(self, repo: str) -> set[str]:
         return set()
+
+
+class FakeProjectGraph(ProjectGraph):
+    """Configurable fake — `neighbors` records its calls and either returns
+    the preset `result` (defaulting to an empty list when unconfigured) or
+    raises the preset `error`. The other four `ProjectGraph` abstractmethods
+    are stubbed trivially since this fake only exercises `neighbors`."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+        self.result: list[str] = []
+        self.error: Exception | None = None
+
+    async def add_edge(self, edge: Edge) -> None:
+        pass
+
+    async def edges_from(self, repo: str) -> list[Edge]:
+        return []
+
+    async def neighbors(self, repo: str) -> list[str]:
+        self.calls.append(repo)
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+    async def remove_seed_edges(self, from_repo: str) -> None:
+        pass
+
+    async def replace_seed_edges(self, from_repo: str, edges: list[Edge]) -> None:
+        pass
 
 
 class FakeLLMClient(LLMClient):
@@ -109,13 +149,25 @@ def fake_episodic() -> FakeEpisodicStore:
 
 
 @pytest.fixture
+def fake_graph() -> FakeProjectGraph:
+    return FakeProjectGraph()
+
+
+@pytest.fixture
 def reasoner(
     fake_llm: FakeLLMClient,
     fake_embedder: FakeEmbedder,
     fake_knowledge: FakeKnowledgeStore,
     fake_episodic: FakeEpisodicStore,
+    fake_graph: FakeProjectGraph,
 ) -> Reasoner:
-    return Reasoner(llm=fake_llm, embedder=fake_embedder, knowledge=fake_knowledge, episodic=fake_episodic)
+    return Reasoner(
+        llm=fake_llm,
+        embedder=fake_embedder,
+        knowledge=fake_knowledge,
+        episodic=fake_episodic,
+        graph=fake_graph,
+    )
 
 
 @pytest.fixture
