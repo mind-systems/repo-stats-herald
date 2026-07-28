@@ -11,18 +11,18 @@ cases:
     range: HEAD~3..HEAD
     lang: en
 
-  # `root` points at a local checkout of the Tradeoxy monorepo's
-  # tradeoxy_core sub-project — the code-only unit whose sources live under
-  # a top-level src/, matching CodeSourceStrategy's root-anchored prefixes
-  # (the monorepo root itself has no top-level src/ and carries its own
-  # .ai-factory/, so it selects nothing). `make eval` writes
-  # evals/out/tradeoxy-features.md; the comparison reference
-  # evals/reference/tradeoxy-features.md is user-authored — never
-  # fabricated by the implementer, same discipline as the summarization eval.
-  - name: tradeoxy-features
+  # `root` points at a local checkout of the Mind product's mind_api
+  # sub-project — the code-only unit whose sources live under a top-level
+  # src/, matching CodeSourceStrategy's root-anchored prefixes (the product
+  # root itself has no top-level src/ and carries its own .ai-factory/, so
+  # it selects nothing). `make eval` writes evals/out/mind-features.md; the
+  # comparison reference evals/reference/mind-features.md is user-authored —
+  # never fabricated by the implementer, same discipline as the
+  # summarization eval.
+  - name: mind-features
     type: distill
-    repo: tradeoxy-core
-    root: /Users/max/projects/tradeoxy/tradeoxy_core
+    repo: mind-api
+    root: /Users/max/projects/mind/mind_api
 
   # `repo` is the bare push.repo key under which repo-stats-herald's own
   # knowledge and episodic entries are stored — populate both stores first

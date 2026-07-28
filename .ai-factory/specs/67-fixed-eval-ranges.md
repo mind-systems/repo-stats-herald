@@ -18,7 +18,7 @@ Replace the relative range in the three affected cases with the fixed range, and
 
 - Case names do not change, so no output or reference filename moves.
 - Only the `range` values change — no case gains, loses, or alters any other field.
-- The two rangeless cases (`tradeoxy-features`, `herald-self-query`) are untouched.
+- The two rangeless cases (`mind-features`, `herald-self-query`) are untouched.
 - No reference note is authored or seeded by this task — that stays manual.
 
 ## Verification
