@@ -123,6 +123,76 @@ class GitCommitCollector:
         except UnicodeDecodeError:
             return None
 
+    def active_branches(self, repo_path: str, before: str, after: str) -> list[tuple[str, str, str]]:
+        """Enumerate the branches active in `before`..`after`'s time window.
+
+        The window boundary is derived from the two commits' own dates
+        (`commit_timestamp`, `git show -s --format=%cI`) rather than the ref
+        names themselves. Returns one `(branch, branch_before, branch_after)`
+        triple per branch with at least one commit in `[before_time,
+        after_time]` (`git rev-list --since=<before_time>
+        --until=<after_time> <branch>`, newest-first) — a branch with none in
+        that span is inactive and skipped rather than yielding an empty
+        triple. `branch_after` is the newest in-window SHA; `branch_before`
+        is the branch's own tip at or before `before_time` (`git rev-list -1
+        --until=<before_time> <branch>`), falling back to the empty-tree SHA
+        when the branch predates that boundary.
+
+        Read-only and no-raise for the per-branch enumeration itself
+        (`for-each-ref`/`rev-list` failures or an inactive branch just yield
+        no triple for it, mirroring `first_parent_steps`'/`changed_paths`'
+        `check=False` contract) — `before`/`after` are assumed-valid refs
+        already resolved by the caller, same precondition `commit_timestamp`
+        and `collect` rely on.
+        """
+        before_time = self.commit_timestamp(repo_path, before).isoformat()
+        after_time = self.commit_timestamp(repo_path, after).isoformat()
+
+        branches: list[tuple[str, str, str]] = []
+        for branch in self._branch_names(repo_path):
+            in_window = self._rev_list(
+                repo_path, f"--since={before_time}", f"--until={after_time}", ref=branch
+            )
+            if not in_window:
+                continue
+            branch_after = in_window[0]
+
+            at_or_before = self._rev_list(repo_path, "-1", f"--until={before_time}", ref=branch)
+            branch_before = at_or_before[0] if at_or_before else EMPTY_TREE_SHA
+
+            branches.append((branch, branch_before, branch_after))
+        return branches
+
+    def _branch_names(self, repo_path: str) -> list[str]:
+        result = subprocess.run(
+            [
+                self._git_bin,
+                "-C",
+                repo_path,
+                "for-each-ref",
+                "--format=%(refname:short)",
+                "--end-of-options",
+                "refs/heads/",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return []
+        return [line for line in result.stdout.splitlines() if line.strip()]
+
+    def _rev_list(self, repo_path: str, *args: str, ref: str) -> list[str]:
+        result = subprocess.run(
+            [self._git_bin, "-C", repo_path, "rev-list", *args, "--end-of-options", ref],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return []
+        return [line for line in result.stdout.splitlines() if line.strip()]
+
     def commit_timestamp(self, repo_path: str, ref: str) -> datetime:
         result = subprocess.run(
             [self._git_bin, "-C", repo_path, "show", "-s", "--format=%cI", "--end-of-options", ref],
