@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 
 import pytest
 
+from src.commits.models import Commit, CommitContext
+from src.episodic.linked_change import LinkedChange
 from src.episodic.models import EpisodicEntry
 from src.episodic.store import EpisodicStore
 from src.graph.models import Edge
@@ -10,6 +12,7 @@ from src.knowledge.store import Chunk, KnowledgeStore
 from src.llm.client import LLMClient
 from src.llm.embedder import Embedder
 from src.reasoning.reasoner import Reasoner
+from src.reasoning.translator import Translator
 
 
 class FakeEmbedder(Embedder):
@@ -128,6 +131,32 @@ class FakeLLMClient(LLMClient):
         return f"answer:{len(self.calls)}"
 
 
+class FakeNarratingReasoner:
+    """Minimal stand-in for the `narrate` surface a `Localizer` calls —
+    records every `(change, lang)` call and returns a deterministic
+    per-lang marker. Not a `Reasoner` subclass: localizers only ever call
+    `narrate`, so this only needs to satisfy that one method."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[LinkedChange, str]] = []
+
+    async def narrate(self, change: LinkedChange, lang: str = "ru") -> str:
+        self.calls.append((change, lang))
+        return f"narrated:{lang}"
+
+
+class FakeTranslator(Translator):
+    """Records every `translate` call and returns a deterministic marker
+    keyed on the target/source language pair."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, str]] = []
+
+    async def translate(self, text: str, target_lang: str, source_lang: str = "en") -> str:
+        self.calls.append((text, target_lang, source_lang))
+        return f"translated:{target_lang}:{source_lang}"
+
+
 @pytest.fixture
 def fake_embedder() -> FakeEmbedder:
     return FakeEmbedder()
@@ -151,6 +180,16 @@ def fake_episodic() -> FakeEpisodicStore:
 @pytest.fixture
 def fake_graph() -> FakeProjectGraph:
     return FakeProjectGraph()
+
+
+@pytest.fixture
+def fake_narrating_reasoner() -> FakeNarratingReasoner:
+    return FakeNarratingReasoner()
+
+
+@pytest.fixture
+def fake_translator() -> FakeTranslator:
+    return FakeTranslator()
 
 
 @pytest.fixture
@@ -210,3 +249,23 @@ def make_entry():
         )
 
     return _make_entry
+
+
+@pytest.fixture
+def make_change():
+    def _make_change(
+        completed_tasks: tuple[str, ...] = (),
+        commit_messages: tuple[str, ...] = ("did a thing",),
+        repo: str = "api",
+    ) -> LinkedChange:
+        commits = tuple(
+            Commit(sha=f"sha{i}", author="a", message=message, changed_files=(), diffstat="")
+            for i, message in enumerate(commit_messages)
+        )
+        return LinkedChange(
+            repo=repo,
+            completed_tasks=completed_tasks,
+            commits=CommitContext(repo=repo, branch="main", commits=commits),
+        )
+
+    return _make_change
