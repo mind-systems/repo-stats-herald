@@ -31,8 +31,8 @@ class GitCommitCollector:
 
     def collect(self, repo_path: str, rev_range: str) -> CommitContext:
         branch = self._current_branch(repo_path)
-        commits = self._collect_commits(repo_path, rev_range)
-        return CommitContext(repo=repo_path, branch=branch, commits=commits)
+        log_text = self._run_log(repo_path, rev_range)
+        return self.parse_log(log_text, repo=repo_path, branch=branch)
 
     def first_parent_steps(self, repo_path: str, ref: str) -> list[tuple[str, str]]:
         """Enumerate `ref`'s first-parent history oldest-first as `(before,
@@ -305,7 +305,21 @@ class GitCommitCollector:
         )
         return result.stdout.strip()
 
-    def _collect_commits(self, repo_path: str, rev_range: str) -> tuple[Commit, ...]:
+    def parse_log(self, log_text: str, repo: str, branch: str) -> CommitContext:
+        """Parse raw `git log` text (record framing, field splitting,
+        numstat/shortstat reading) into a `CommitContext`, without shelling
+        out or touching the filesystem. `repo`/`branch` are label strings
+        written straight into the returned context."""
+        commits = []
+        for record in log_text.split(_RECORD_SEP):
+            if not record.strip():
+                continue
+            commit = self._parse_record(record)
+            if commit is not None:
+                commits.append(commit)
+        return CommitContext(repo=repo, branch=branch, commits=tuple(commits))
+
+    def _run_log(self, repo_path: str, rev_range: str) -> str:
         result = subprocess.run(
             [
                 self._git_bin,
@@ -324,14 +338,7 @@ class GitCommitCollector:
             text=True,
             check=True,
         )
-        commits = []
-        for record in result.stdout.split(_RECORD_SEP):
-            if not record.strip():
-                continue
-            commit = self._parse_record(record)
-            if commit is not None:
-                commits.append(commit)
-        return tuple(commits)
+        return result.stdout
 
     def _parse_record(self, record: str) -> Commit | None:
         # 4 field separators (after H, an, s, b) isolate exactly 5 parts: the trailing
