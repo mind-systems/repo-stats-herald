@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     reasoner_k: int = 8
     pivot_lang: str = "en"
     report_schedules: Annotated[tuple[ReportSchedule, ...], NoDecode] = ()
+    version_increment: Literal["major", "minor", "patch"] = "patch"
 
     @field_validator("serve_allowlist", mode="before")
     @classmethod

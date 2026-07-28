@@ -193,6 +193,70 @@ class GitCommitCollector:
         matches = self._rev_list(repo_path, "-1", f"--until={when.isoformat()}", ref=ref)
         return matches[0] if matches else None
 
+    def list_tags(self, repo_path: str) -> tuple[str, ...]:
+        """List every tag in the repo, verbatim and parse-agnostic (`git
+        tag`) — non-version tags (`nightly`, `build-42`, …) are NOT filtered
+        here; that is the semver-parsing caller's job (`Version.parse`).
+        Read-only and no-raise: an empty tuple on non-zero exit."""
+        result = subprocess.run(
+            [self._git_bin, "-C", repo_path, "tag"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return ()
+        return tuple(line for line in result.stdout.splitlines() if line.strip())
+
+    def is_ancestor(self, repo_path: str, sha: str, ref: str) -> bool:
+        """Whether `sha` (which may itself be a tag name/ref) is an ancestor
+        of `ref` (`git merge-base --is-ancestor`). Read-only and no-raise:
+        exit 0 -> `True`, any non-zero exit (including an unknown ref) ->
+        `False`."""
+        result = subprocess.run(
+            [self._git_bin, "-C", repo_path, "merge-base", "--is-ancestor", "--end-of-options", sha, ref],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.returncode == 0
+
+    def new_commits(self, repo_path: str, before: str, after: str, exclude_ref: str) -> tuple[str, ...]:
+        """Non-merge commits `before..after` introduces that are not already
+        reachable from `exclude_ref` (`git rev-list <before>..<after>
+        --no-merges --not <exclude_ref>`). `--no-merges` drops the merge
+        commit itself and excluding `exclude_ref` drops anything already
+        reachable from it, so a fast-forward OR merge-commit back-merge that
+        pulls `exclude_ref` down with no unique non-merge work yields an
+        empty tuple. Read-only and no-raise: an empty tuple on non-zero
+        exit.
+
+        The exclusion is written as a literal `^exclude_ref` argument rather
+        than the `--not` flag so `--end-of-options` can precede BOTH
+        caller-supplied refs (`before..after` and `exclude_ref`): once git
+        sees `--end-of-options` no further `-`-prefixed *option* can follow
+        (a trailing `--not` would itself error), but `^ref`/`A..B` are
+        revision syntax, not options, and still parse correctly after it.
+        """
+        result = subprocess.run(
+            [
+                self._git_bin,
+                "-C",
+                repo_path,
+                "rev-list",
+                "--no-merges",
+                "--end-of-options",
+                f"{before}..{after}",
+                f"^{exclude_ref}",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return ()
+        return tuple(line for line in result.stdout.splitlines() if line.strip())
+
     def _branch_names(self, repo_path: str) -> list[str]:
         result = subprocess.run(
             [
