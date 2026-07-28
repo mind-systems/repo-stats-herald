@@ -25,10 +25,12 @@ import yaml
 from src.commits.collector import GitCommitCollector
 from src.core.config import get_settings
 from src.core.db import create_pool
+from src.episodic.linked_change import LinkedChangeResolver
 from src.episodic.store import PgEpisodicStore
 from src.graph.store import PgProjectGraph
 from src.knowledge.code_distiller import CodeDistiller
 from src.knowledge.code_source_strategy import CodeSourceStrategy
+from src.knowledge.source_strategy import AiFactorySourceStrategy
 from src.knowledge.store import PgVectorStore
 from src.llm.client import OllamaClient
 from src.llm.embedder import OllamaEmbedder
@@ -109,6 +111,26 @@ class ReasonerCaseHandler(CaseHandler):
         return await self._reasoner.answer(inputs["query"], inputs.get("repo"))
 
 
+class NarrateCaseHandler(CaseHandler):
+    """Runs the `narrate` case type through the production
+    LinkedChangeResolver + Reasoner.narrate flow."""
+
+    def __init__(self, resolver: LinkedChangeResolver, reasoner: Reasoner) -> None:
+        self._resolver = resolver
+        self._reasoner = reasoner
+
+    async def run(self, inputs: dict) -> str:
+        before, after = self._split_range(inputs["range"])
+        change = self._resolver.resolve(inputs["repo"], before, after)
+        return await self._reasoner.narrate(change, inputs.get("lang", "ru"))
+
+    def _split_range(self, range_: str) -> tuple[str, str]:
+        parts = range_.rsplit("..", 1)
+        if len(parts) != 2:
+            raise ValueError(f"malformed range (expected 'before..after'): {range_!r}")
+        return parts[0], parts[1]
+
+
 class EvalRunner:
     """Dispatches eval cases to their registered handler and writes outputs."""
 
@@ -165,7 +187,7 @@ async def _run() -> None:
 
     pool = None
     try:
-        if any(case.type == "reasoner" for case in cases):
+        if any(case.type in ("reasoner", "narrate") for case in cases):
             pool = await create_pool(settings.postgres_dsn)
             reasoner = Reasoner(
                 llm=OllamaClient(settings.ollama_url, settings.ollama_model, settings.ollama_api_key),
@@ -177,6 +199,9 @@ async def _run() -> None:
                 prompt=ReasoningPromptBuilder(),
             )
             handlers["reasoner"] = ReasonerCaseHandler(reasoner)
+            handlers["narrate"] = NarrateCaseHandler(
+                LinkedChangeResolver(GitCommitCollector(), AiFactorySourceStrategy()), reasoner
+            )
 
         runner = EvalRunner(handlers)
         await runner.run(cases)

@@ -1,12 +1,14 @@
 import logging
 from dataclasses import dataclass, field
 
+from src.episodic.linked_change import LinkedChange
 from src.episodic.models import EpisodicEntry
 from src.episodic.store import EpisodicStore
 from src.graph.store import ProjectGraph
 from src.knowledge.store import Chunk, KnowledgeStore
 from src.llm.client import LLMClient
 from src.llm.embedder import Embedder
+from src.reasoning.narration_prompt import NarrationPromptBuilder
 from src.reasoning.prompt import ReasoningPromptBuilder
 
 logger = logging.getLogger(__name__)
@@ -44,6 +46,7 @@ class Reasoner:
         graph: ProjectGraph,
         reasoner_k: int = 8,
         prompt: ReasoningPromptBuilder | None = None,
+        narration_prompt: NarrationPromptBuilder | None = None,
     ) -> None:
         self._llm = llm
         self._embedder = embedder
@@ -52,6 +55,7 @@ class Reasoner:
         self._graph = graph
         self._k = reasoner_k
         self._prompt = prompt if prompt is not None else ReasoningPromptBuilder()
+        self._narration_prompt = narration_prompt if narration_prompt is not None else NarrationPromptBuilder()
 
     async def _gather_context(self, query: str, repo: str | None) -> GatheredContext:
         """Embed `query` once and query both memories with that same
@@ -129,3 +133,29 @@ class Reasoner:
         gathered = await self._gather_context(query, repo)
         prompt = self._prompt.build(query, gathered.chunks, gathered.entries, gathered.neighbor_chunks)
         return await self._llm.generate(prompt)
+
+    async def narrate(self, change: LinkedChange, lang: str = "ru") -> str:
+        """Narrate `change` at feature level, in `lang`.
+
+        Reuses `_gather_context` (the same retrieval+neighbor step `answer`
+        calls) scoped to `change.repo`, then renders a narration prompt —
+        completed tasks lead, commits are supporting detail, cross-project
+        neighbors are framed as what the change "unblocks" — instead of
+        `answer`'s Q&A prompt. `change.commits` always populates the
+        retrieval query and the prompt, so this never returns empty: when
+        retrieval/neighbor context is unavailable, the note degrades to a
+        commits-only digest rather than failing.
+        """
+        query = self._narration_query(change)
+        gathered = await self._gather_context(query, change.repo)
+        prompt = self._narration_prompt.build(
+            change, gathered.chunks, gathered.entries, gathered.neighbor_chunks, lang
+        )
+        return await self._llm.generate(prompt)
+
+    def _narration_query(self, change: LinkedChange) -> str:
+        """Build the retrieval query from both completed tasks and commit
+        messages — neither source is dropped when the other is empty."""
+        parts = list(change.completed_tasks)
+        parts.extend(commit.message for commit in change.commits.commits)
+        return "\n".join(parts)
