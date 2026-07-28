@@ -309,6 +309,8 @@ class GitCommitCollector:
         result = subprocess.run(
             [
                 self._git_bin,
+                "-c",
+                "core.quotepath=false",
                 "-C",
                 repo_path,
                 "log",
