@@ -94,9 +94,27 @@ Known gap to state in the test module rather than fix: `self._mirror_root.glob("
 - **The `auth` fixture cannot mint.** `private_key="test-key"` is not a PEM. Every https-path case must monkeypatch `auth.token` or `subprocess.run`; a test that reaches `jwt.encode` is mis-set-up, not failing.
 - **SCOPE GUARD — deliberately not planned here.** No concurrency scenarios (threads, `ThreadPoolExecutor`, interleaved `ensure`/`tree`, prune-vs-create races, clone-branch double entry): the concurrency surface is owned by OPEN roadmap task **20.2.1** (`.ai-factory/specs/66-repo-mirror-concurrency-contract.md`). No async/`await` conversion tests either: that is **20.2.2** (`.ai-factory/specs/61-repo-mirror-async-boundary.md`). Every case above is single-threaded and synchronous — plain `with` blocks rather than manual `__enter__`/`__exit__`, no executors — so that when 20.2.2 makes these methods awaitable, the whole file converts mechanically to `await` without re-deciding any behavior.
 
-## Refactor Required
+## Seam in place
 
-`mirror_root`, `auth`, and `clone_source` are already constructor parameters, `resolve_canonical_ref` takes `mirror` as an argument, and `tree`'s `mkdtemp` scratch location is already pinned by `mirror_root` — none of those cost a test anything. The one friction is the process-execution call site: `subprocess.run(["git", ...])` is hardcoded inside `_run_git` and again inside `default_branch`, with no parameter offering a runner.
+The seam this plan asked for is present:
+
+```python
+RepoMirror(mirror_root, auth, clone_source, run=subprocess.run)
+```
+
+`run` is keyword-with-default, and **both** execution sites route through it — `default_branch` and the shared `_run_git` helper — so there is one seam, not two.
+
+**Case-status changes against what this plan assumed:**
+
+- **Cases 33, 34 and 36** (token in the environment and not in argv; the credential carried on fetch as well as clone; the token absent from the raised failure) are authored by constructing the mirror with a recording callable and asserting on what it received. No `monkeypatch.setattr` on the module, and no risk of the patch leaking into a neighbouring test.
+- **Case 32** (the token never persisted into the bare store's `origin`) stays a real run against `local_upstream` — it asserts on written config, not on an invocation.
+- Every other case keeps the default runner and the existing `mirror` / `local_upstream` / `auth` fixtures unchanged.
+
+The recording callable must return a `subprocess.CompletedProcess`, since `default_branch` reads `.stdout` off it. A recorder that returns `None` fails in a way that looks like a mirror bug rather than a fixture bug.
+
+### Historical — the friction this replaced
+
+`mirror_root`, `auth`, and `clone_source` were already constructor parameters, `resolve_canonical_ref` took `mirror` as an argument, and `tree`'s `mkdtemp` scratch location was already pinned by `mirror_root` — none of those cost a test anything. The one friction was the process-execution call site: `subprocess.run(["git", ...])` was hardcoded inside `_run_git` and again inside `default_branch`, with no parameter offering a runner.
 
 That matters for exactly one group of cases — the https credential path (cases 33, 34, 36). Its argv and its `GIT_CONFIG_*` / `Authorization` env are observable *only* by interception, because `_run_git` returns nothing a caller can inspect and real git cannot be pointed at a filesystem upstream while also exercising the https branch. So those cases must `monkeypatch.setattr(src.github.mirror.subprocess, "run", recorder)` rather than pass a recorder in.
 

@@ -117,9 +117,41 @@ These pin the four existing guards. They are green today; they are high-value as
 
 **`request=None, response=None` on `httpx.HTTPStatusError`.** Both existing delivery tests construct it that way. It is technically off-spec for `httpx` but works, and it keeps the fakes trivial. Match it rather than building real `Request`/`Response` objects.
 
-## Refactor Required
+## Seam in place — supersedes the Instantiation section above
 
-`base_url`, `model`, `api_key` and `timeout` are already constructor parameters and cost a test nothing. The friction is that both `OllamaClient.generate` and `OllamaEmbedder.embed` build their `httpx.AsyncClient` inside the call, with no client and no `transport=` parameter — and the one thing every test in this plan must vary is precisely the response body and the transport error.
+The seam this plan asked for is present on both classes:
+
+```python
+OllamaClient(base_url, model, api_key=None, timeout=120.0, transport=None)
+OllamaEmbedder(base_url, model, api_key=None, timeout=120.0, transport=None)
+```
+
+`transport: httpx.AsyncBaseTransport | None` is threaded straight into `httpx.AsyncClient(timeout=..., transport=...)` in both `generate` and `embed`.
+
+**This replaces the `FakeAsyncClient` / `FakeResponse` monkeypatch pattern the Instantiation section above describes.** Do not hand-write a stand-in client; pass `httpx.MockTransport` and return real responses:
+
+```python
+def handler(request: httpx.Request) -> httpx.Response:
+    calls.append(request)
+    return httpx.Response(200, json={"response": "text"})
+
+client = OllamaClient("http://h", "m", transport=httpx.MockTransport(handler))
+```
+
+What this changes about authoring the cases:
+
+- **Response bodies** are real `httpx.Response` objects, so `raise_for_status` and `.json()` behave exactly as in production — no approximation to drift from.
+- **The timeout case gains fidelity.** The Gotchas note that a hand-written fake could only raise a timeout from `raise_for_status` rather than from the request itself; a handler that raises `httpx.ReadTimeout` reproduces the real path.
+- **`httpx.HTTPStatusError(request=None, response=None)` is no longer needed** — return a real non-2xx response and let `raise_for_status` construct the error.
+- **Request assertions** read off the recorded `httpx.Request`: `request.url`, `request.headers`, and `json.loads(request.content)` cover the endpoint, the conditional bearer header, and the body shape.
+- **The timeout-plumbing case** is the one thing `MockTransport` cannot observe, since it bypasses the timeout. Assert `client._timeout` directly, or drop the case as loud-failure filler.
+- Everything in the two **response-validation** groups is unchanged in substance — only how the response is supplied changes.
+
+**Still red:** the generator's response-parsing group. The seam task deliberately changed no behaviour, so `generate` still returns whatever the decoded body holds under its text key, with none of the validation its sibling embedder performs. Adding that guard is its own task; these tests land with it, not with the seam.
+
+### Historical — the friction this replaced
+
+`base_url`, `model`, `api_key` and `timeout` were already constructor parameters and cost a test nothing. The friction was that both `OllamaClient.generate` and `OllamaEmbedder.embed` built their `httpx.AsyncClient` inside the call, with no client and no `transport=` parameter — and the one thing every test in this plan must vary is precisely the response body and the transport error.
 
 So each case can only reach its subject by monkeypatching the module's `httpx.AsyncClient` symbol, which is what `tests/delivery/test_telegram_client.py` and `tests/delivery/test_changelog_client.py` already do, at the cost of a hand-written fake client/response pair per module. That fake then has to re-implement the async-context-manager protocol, `post`, `raise_for_status` and `json` — none of which is the behavior under test.
 

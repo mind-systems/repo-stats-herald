@@ -37,7 +37,7 @@ So the `--stat` parse that feeds every downstream prompt has **zero** automated 
 1. **should return one Commit per commit in the range, newest-first, when the range spans several commits** — `collect` → `_collect_commits`. Assert the SHA tuple equals the fixture SHAs reversed (git log is newest-first and the collector preserves that order).
 2. **should not emit a phantom empty Commit for the leading record separator when parsing any non-empty range** — `_collect_commits`'s `if not record.strip()` guard. The format prefixes every record with `%x1e`, so `split` always yields an empty leading element.
 3. **should return an empty commits tuple without raising when the range is well-formed but empty** — `collect`. Setup: `collect(str(git_repo), f"{sha}..{sha}")`; assert `ctx.commits == ()` and `ctx.branch == "main"`.
-4. **should not silently drop a commit whose subject contains the record-separator byte** — `_collect_commits`/`_parse_record`. Setup: `commit_at(git_repo, "fix\x1ething")`. **Expected red:** today the RS splits the record into two fragments, each with fewer than 5 NUL fields, so `_parse_record` returns `None` for both and the commit vanishes from `CommitContext` entirely — a whole commit missing from the narration with no error. Non-obvious: a NUL byte in a message is impossible (git rejects it), so there is deliberately **no** NUL-in-message case.
+4. **should not silently drop a commit whose subject contains the record-separator byte** — `parse_log` / `_parse_record`. Feed a two-record text whose second subject carries `\x1e`. **This case describes a live defect, verified: two records in, one commit out.** The byte splits the record into two fragments, each with fewer than five NUL fields, so `_parse_record` returns `None` for both and the commit vanishes from `CommitContext` with no error — a commit absent from the narration, and a way to hide one from it deliberately. **This case is out of scope for the test-roadmap entry.** It asserts behaviour that does not exist, so it cannot be written without a source change first, and a red assertion has no place in a coverage task, and dressing it up so the suite stays green does not change what it is — a contract for work nobody has planned. It is owned by 23.6 in the main roadmap, which fixes the framing and lands this case with it; the case is documented here because this is where its shape was worked out, not because this plan's task writes it. Non-obvious: a NUL byte in a message is impossible (git rejects it), so there is deliberately **no** NUL-in-message case.
 
 ### Subject/body joining
 
@@ -85,9 +85,30 @@ So the `--stat` parse that feeds every downstream prompt has **zero** automated 
 - **The empty-tree SHA needs no special case in `collect`**, unlike `active_branches`, which guards it explicitly because `commit_timestamp` would blow up on the tree header.
 - **SCOPE GUARD — excluded from this plan.** `new_commits`' failure-vs-empty-range signal is owned by OPEN roadmap tasks 18.2.1 and 18.2.2 (`.ai-factory/specs/65-collector-failure-signal-contract.md`, `.ai-factory/specs/54-git-failure-vs-empty-range.md`). Those tasks own the three existing `new_commits` tests plus the new genuine-`git`-failure case. **No test here touches `new_commits`, `Versioner._next_staging`, or the failure-signal shape.** Case 19 above asserts `collect`'s own long-standing `check=True` fail-loud contract only and must not be generalized into a collector-wide failure-signal assertion, or it will collide with 18.2.2 when that lands.
 
-## Refactor Required
+## Seam in place
 
-`collect` takes only `repo_path` / `rev_range` and reaches git's stdout inside `_collect_commits` through a module-level `subprocess.run`. The shapes this parse is actually about are the ones no argument reaches:
+The seam this plan asked for is present, and both halves landed.
+
+`GitCommitCollector.parse_log(log_text, repo, branch) -> CommitContext` is public and shells out to nothing; `collect` now reads the branch, runs `_run_log`, and delegates. So every parsing case is authored by passing a string — no repository, no `monkeypatch`, no fixture:
+
+```python
+ctx = GitCommitCollector().parse_log(captured_text, repo="r", branch="main")
+```
+
+`_run_log` also carries `-c core.quotepath=false`, so git emits non-ASCII paths literally.
+
+**Case-status changes against what this plan assumed:**
+
+- **Case 17 (non-ASCII path) is no longer expected-red.** Write it as a straight positive assertion against `collect` on a real repository — the literal filename comes back.
+- **Case 4 (record-separator byte in a subject) is out of scope and stays out**: the parse-seam task altered no parsing rule, current defects included, so the behaviour it asserts does not exist. It belongs to 23.6, which fixes the framing and lands the case with it.
+- **Cases 7–8, 12, 14, 15** (numstat/shortstat injection via the body, brace-compressed rename, merge commit, several-hundred-file stat block) move onto `parse_log` with captured text. Capture each once from real git, store it as a fixture constant, and assert against it.
+- **Cases 1–3, 9–11, 13, 16, 18–23** stay on the `git_repo` / `commit_at` fixtures — they are the honest end-to-end check that git's actual output still matches what the parser expects, and that check is worth keeping distinct from the parse-only cases.
+
+Split the file accordingly: a parse group driven by text constants and a collect group driven by the repository fixtures.
+
+### Historical — the friction this replaced
+
+`collect` took only `repo_path` / `rev_range` and reached git's stdout through a module-level `subprocess.run`. The shapes this parse is actually about are the ones no argument reached:
 
 - A record-separator byte inside a commit subject — handled by the RS split *above* `_parse_record`, so no parameter carries it.
 - C-quoted non-ASCII numstat paths, whose form depends on the ambient `core.quotepath` setting, which arrives through neither the `git_bin` constructor param nor the call.
