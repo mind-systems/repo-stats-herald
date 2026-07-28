@@ -27,3 +27,12 @@ class ServedRepoStore:
                 org_id,
                 repos,
             )
+
+    async def all(self) -> list[tuple[int, str]]:
+        """Return every `(org_id, repo)` pair currently served, ordered for
+        stable, idempotent iteration. This is the authoritative served set —
+        callers iterate this rather than guessing `org_id` from a mirror
+        directory listing."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch("SELECT org_id, repo FROM served_repos ORDER BY org_id, repo")
+        return [(row["org_id"], row["repo"]) for row in rows]

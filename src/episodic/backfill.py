@@ -6,7 +6,7 @@ from src.commits.collector import GitCommitCollector
 from src.episodic.linked_change import LinkedChangeResolver
 from src.episodic.models import EpisodicEntry
 from src.episodic.store import EpisodicStore
-from src.github.mirror import RepoMirror
+from src.github.mirror import RepoMirror, resolve_canonical_ref
 from src.knowledge.code_distiller import CodeDistiller
 from src.knowledge.source_strategy import SourceStrategy
 from src.llm.embedder import Embedder
@@ -60,10 +60,7 @@ class EpisodicBackfill:
         self._source_strategy = source_strategy
 
     def _canonical_ref(self, repo: str) -> str:
-        override = self._canonical_refs.get(repo)
-        if override is not None:
-            return override
-        return self._mirror.default_branch(repo)
+        return resolve_canonical_ref(repo, self._canonical_refs, self._mirror)
 
     async def run(self, repo: str, org_id: int) -> None:
         self._mirror.ensure(repo, org_id)

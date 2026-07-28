@@ -1,7 +1,7 @@
 import logging
 import re
 
-from src.github.mirror import RepoMirror
+from src.github.mirror import RepoMirror, resolve_canonical_ref
 from src.graph.models import Edge, EdgeKind
 from src.graph.store import ProjectGraph
 
@@ -35,10 +35,7 @@ class CoordinationSeeder:
         return any(line.strip() == _COORDINATION_HEADING for line in claude_md.splitlines())
 
     def _canonical_ref(self, repo: str) -> str:
-        override = self._canonical_refs.get(repo)
-        if override is not None:
-            return override
-        return self._mirror.default_branch(repo)
+        return resolve_canonical_ref(repo, self._canonical_refs, self._mirror)
 
     def _coordination_section(self, claude_md: str) -> list[str]:
         section: list[str] = []

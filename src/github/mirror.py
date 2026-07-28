@@ -201,3 +201,16 @@ class RepoMirror:
                 "GIT_CONFIG_VALUE_0": f"Authorization: Basic {basic}",
             }
         subprocess.run(["git", *args], cwd=cwd, env=env, check=True, capture_output=True)
+
+
+def resolve_canonical_ref(repo: str, canonical_refs: dict[str, str], mirror: RepoMirror) -> str:
+    """The one home for the canonical-ref policy: `repo`'s configured
+    override if `canonical_refs` has one, else its mirror's default branch.
+    Every consumer that needs "the ref a served repo is canonical on" —
+    knowledge sync, coordination seeding, episodic backfill, and report
+    windows/delivery — resolves through this single function rather than
+    keeping its own copy of the policy."""
+    override = canonical_refs.get(repo)
+    if override is not None:
+        return override
+    return mirror.default_branch(repo)

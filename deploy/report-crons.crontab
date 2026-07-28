@@ -1,0 +1,10 @@
+# Deployed (prod) crons for the report entrypoint. In production Ollama is
+# co-located with the service (no SSH tunnel) — these run `uv run python -m
+# scripts.report` directly against localhost.
+#
+# Each `--schedule` value must match a `name` in the `REPORT_SCHEDULES`
+# config (see .env.example) — an unknown name raises at startup rather than
+# silently building nothing.
+
+0 8 * * *   cd /opt/repo-stats-herald && uv run python -m scripts.report --schedule daily
+0 8 * * 1   cd /opt/repo-stats-herald && uv run python -m scripts.report --schedule weekly

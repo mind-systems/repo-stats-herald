@@ -1,7 +1,7 @@
 -include .env.dev
 export
 
-.PHONY: install run tunnel dev eval test
+.PHONY: install run tunnel dev eval test report-daily report-weekly
 
 install:
 	uv sync
@@ -20,3 +20,9 @@ dev: tunnel
 
 eval: tunnel
 	uv run python -m scripts.eval
+
+report-daily: tunnel
+	uv run python -m scripts.report --schedule daily
+
+report-weekly: tunnel
+	uv run python -m scripts.report --schedule weekly

@@ -1,6 +1,6 @@
 import logging
 
-from src.github.mirror import RepoMirror
+from src.github.mirror import RepoMirror, resolve_canonical_ref
 from src.graph.coordination import CoordinationSeeder
 from src.ingestion.models import PushEvent
 from src.knowledge.indexer import ArtifactIndexer
@@ -33,10 +33,7 @@ class KnowledgeSync:
         self._seeder = seeder
 
     def _canonical_ref(self, repo: str) -> str:
-        override = self._canonical_refs.get(repo)
-        if override is not None:
-            return override
-        return self._mirror.default_branch(repo)
+        return resolve_canonical_ref(repo, self._canonical_refs, self._mirror)
 
     async def backfill(self, repo: str, org_id: int) -> None:
         self._mirror.ensure(repo, org_id)

@@ -144,24 +144,54 @@ class GitCommitCollector:
         `check=False` contract) — `before`/`after` are assumed-valid refs
         already resolved by the caller, same precondition `commit_timestamp`
         and `collect` rely on.
+
+        Empty-tree-safe on both boundaries: `commit_timestamp` runs `git
+        show -s --format=%cI` on the ref, which prints a tree header (not a
+        commit date) for the empty-tree SHA and would otherwise raise inside
+        `datetime.fromisoformat`. A caller resolving a report window can
+        legitimately hand this method `after == EMPTY_TREE_SHA` (an empty
+        repo — no branch can be active, so this returns `[]` before either
+        timestamp lookup) or `before == EMPTY_TREE_SHA` with a real `after`
+        (a young repo whose whole in-window history predates any prior
+        commit — treated as "beginning of time": no `--since` filter, and
+        every active branch's `branch_before` is the empty-tree SHA).
         """
-        before_time = self.commit_timestamp(repo_path, before).isoformat()
+        if after == EMPTY_TREE_SHA:
+            return []
+
         after_time = self.commit_timestamp(repo_path, after).isoformat()
+
+        if before == EMPTY_TREE_SHA:
+            before_time: str | None = None
+        else:
+            before_time = self.commit_timestamp(repo_path, before).isoformat()
 
         branches: list[tuple[str, str, str]] = []
         for branch in self._branch_names(repo_path):
+            since_args = [f"--since={before_time}"] if before_time is not None else []
             in_window = self._rev_list(
-                repo_path, f"--since={before_time}", f"--until={after_time}", ref=branch
+                repo_path, *since_args, f"--until={after_time}", ref=branch
             )
             if not in_window:
                 continue
             branch_after = in_window[0]
 
-            at_or_before = self._rev_list(repo_path, "-1", f"--until={before_time}", ref=branch)
-            branch_before = at_or_before[0] if at_or_before else EMPTY_TREE_SHA
+            if before_time is None:
+                branch_before = EMPTY_TREE_SHA
+            else:
+                at_or_before = self._rev_list(repo_path, "-1", f"--until={before_time}", ref=branch)
+                branch_before = at_or_before[0] if at_or_before else EMPTY_TREE_SHA
 
             branches.append((branch, branch_before, branch_after))
         return branches
+
+    def commit_at_or_before(self, repo_path: str, ref: str, when: datetime) -> str | None:
+        """Return the newest commit on `ref` at or before `when`, or `None`
+        when `ref` has no commit at or before that timestamp. Read-only and
+        no-raise (`check=False`), same contract as the other enumeration
+        primitives."""
+        matches = self._rev_list(repo_path, "-1", f"--until={when.isoformat()}", ref=ref)
+        return matches[0] if matches else None
 
     def _branch_names(self, repo_path: str) -> list[str]:
         result = subprocess.run(
