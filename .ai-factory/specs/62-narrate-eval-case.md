@@ -8,7 +8,7 @@
 
 ## Change
 
-Add a `narrate` case to `evals/cases.yaml`: `repo: "."`, `range: 0783684467d191a44bea94aa1de521f2cb23d6df..1bb7597925f54d42184d317c4f5eb2b2fde9aabe`, `lang: ru`, carrying the same kind of comment the other unreferenced cases already carry, noting that its comparison reference is user-authored and not yet created. The range is fixed rather than relative to `HEAD`, so the case's input does not move under its reference as new commits land on this repo.
+Add a `narrate` case to `evals/cases.yaml`: `name: herald-narrate`, `repo: "."`, `range: 0783684467d191a44bea94aa1de521f2cb23d6df..1bb7597925f54d42184d317c4f5eb2b2fde9aabe`, `lang: ru`. The name is pinned, not chosen at implementation time: its reference note already exists at `evals/reference/herald-narrate.md`, and the harness pairs a case with its reference by name alone, so a different name would orphan that file and report the case as unreferenced. The range is fixed rather than relative to `HEAD`, so the case's input does not move under its reference as new commits land on this repo.
 
 ## Files & types
 
