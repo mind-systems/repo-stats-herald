@@ -13,3 +13,5 @@ class DeliveryPlan:
     branch_role: BranchRole
     is_release: bool
     is_prerelease: bool
+    telegram_channel: str | None = None
+    language: str = "ru"

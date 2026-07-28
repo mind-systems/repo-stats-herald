@@ -38,3 +38,30 @@ def test_resolve_derives_flags_from_role():
     assert dev_plan.branch_role is BranchRole.DEV
     assert dev_plan.is_release is False
     assert dev_plan.is_prerelease is False
+
+
+def test_resolve_maps_numeric_org_id_to_its_channel():
+    resolver = DeliveryPlanResolver(
+        Settings(github_webhook_secret="x", telegram_bot_token="x", telegram_channels={1: "-100123"})
+    )
+
+    plan = resolver.resolve(org_id=1, repo="repo", branch="main")
+    assert plan.telegram_channel == "-100123"
+    assert plan.language == "ru"
+
+
+def test_resolve_returns_none_channel_for_unmapped_org():
+    resolver = DeliveryPlanResolver(
+        Settings(github_webhook_secret="x", telegram_bot_token="x", telegram_channels={1: "-100123"})
+    )
+
+    plan = resolver.resolve(org_id=2, repo="repo", branch="main")
+    assert plan.telegram_channel is None
+    assert plan.language == "ru"
+
+
+def test_telegram_channels_json_string_parses_to_int_keys():
+    settings = Settings(
+        github_webhook_secret="x", telegram_bot_token="x", telegram_channels='{"1": "-100123"}'
+    )
+    assert settings.telegram_channels == {1: "-100123"}
