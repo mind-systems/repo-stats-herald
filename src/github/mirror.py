@@ -43,10 +43,12 @@ class RepoMirror:
         mirror_root: Path,
         auth: GitHubAppAuth,
         clone_source: Callable[[str, int], str],
+        run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
     ) -> None:
         self._mirror_root = mirror_root
         self._auth = auth
         self._clone_source = clone_source
+        self._run = run
         self._finished_worktrees: list[tuple[Path, Path]] = []
         self._finished_worktrees_lock = threading.Lock()
 
@@ -74,7 +76,7 @@ class RepoMirror:
         The caller must have run `ensure(repo, ...)` first so the bare clone
         exists.
         """
-        result = subprocess.run(
+        result = self._run(
             ["git", "symbolic-ref", "--short", "HEAD"],
             cwd=self._bare_path(repo),
             capture_output=True,
@@ -200,7 +202,7 @@ class RepoMirror:
                 "GIT_CONFIG_KEY_0": "http.extraHeader",
                 "GIT_CONFIG_VALUE_0": f"Authorization: Basic {basic}",
             }
-        subprocess.run(["git", *args], cwd=cwd, env=env, check=True, capture_output=True)
+        self._run(["git", *args], cwd=cwd, env=env, check=True, capture_output=True)
 
 
 def resolve_canonical_ref(repo: str, canonical_refs: dict[str, str], mirror: RepoMirror) -> str:
