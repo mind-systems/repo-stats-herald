@@ -36,7 +36,20 @@ class PivotLocalizer(Localizer):
         self._pivot = pivot
 
     async def notes(self, change: LinkedChange, langs: set[str]) -> dict[str, str]:
-        raise NotImplementedError
+        if not langs:
+            return {}
+
+        narration = await self._reasoner.narrate(change, self._pivot)
+
+        result: dict[str, str] = {}
+        for lang in langs:
+            if lang == self._pivot:
+                result[lang] = narration
+            else:
+                result[lang] = await self._translator.translate(
+                    narration, target_lang=lang, source_lang=self._pivot
+                )
+        return result
 
 
 class NativeLocalizer(Localizer):
@@ -53,4 +66,4 @@ class NativeLocalizer(Localizer):
         self._reasoner = reasoner
 
     async def notes(self, change: LinkedChange, langs: set[str]) -> dict[str, str]:
-        raise NotImplementedError
+        return {lang: await self._reasoner.narrate(change, lang) for lang in langs}

@@ -36,3 +36,14 @@ cases:
     type: reasoner
     repo: repo-stats-herald
     query: What has changed recently in repo-stats-herald?
+
+  # Pivot is `en`, so `ru` is genuinely translated from the `en` narration
+  # rather than reasoned independently — exercises PivotLocalizer end to end.
+  # `make eval` writes evals/out/herald-localize.md; the comparison reference
+  # evals/reference/herald-localize.md is user-authored — never fabricated
+  # by the implementer, same discipline as the summarization/narrate evals.
+  - name: herald-localize
+    type: localize
+    repo: .
+    range: HEAD~3..HEAD
+    langs: [en, ru]

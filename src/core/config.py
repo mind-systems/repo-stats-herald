@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     postgres_db: str = "herald_database"
     project_edges: Annotated[tuple[tuple[str, str, str], ...], NoDecode] = ()
     reasoner_k: int = 8
+    pivot_lang: str = "en"
 
     @field_validator("serve_allowlist", mode="before")
     @classmethod
