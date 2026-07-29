@@ -12,12 +12,13 @@ Define, and pin with red scenarios, the invariants the async conversion must pre
 
 ## Files & types
 
-- edit `tests/github/test_mirror.py` (or the equivalent existing mirror test module — add the four concurrency scenarios)
+- edit `tests/github/test_mirror_isolation.py` (the concurrency home of the split-out mirror suite — add the four concurrency scenarios)
 
 ## Guards
 
 - No production code lands and no synchronization mechanism is chosen — a per-repo lock is one plausible answer, but selecting it belongs to the implementing task, which must answer to these scenarios rather than the reverse.
 - The scenarios are red against today's synchronous implementation only where the async conversion would make them reachable, and each states which of the two it is.
+- A scenario may be red-only by construction. Where the harness can force the interleaving only while the defect is present, the conversion task relaxes that gate rather than inheriting a scenario expected to turn green unchanged; what survives the conversion is the invariant the scenario asserts, not the mechanism that forces it.
 - `GitHubAppAuth`'s single-flight token cache is already guarded by a per-org `threading.Lock` written for thread concurrency, so double-minting is out of scope here and is not re-pinned.
 
 ## Verification

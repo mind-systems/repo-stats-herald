@@ -28,6 +28,7 @@ Move the blocking git work onto a thread from inside `RepoMirror` itself, so eve
 - Credential handling through the git process environment is unchanged.
 - The deferred worktree-reclamation timing — a finished worktree reclaimed on the repo's next mirror-refresh rather than immediately — is unchanged.
 - The conversion genuinely widens `RepoMirror`'s concurrency surface: methods that run atomically with respect to the event loop today gain yield points once their git work is offloaded, so interleavings unreachable today become reachable. This task satisfies the invariants the preceding contract task pins — it does not assume equivalence with the synchronous mirror.
+- At least one of the preceding contract task's scenarios is red-only by construction: its forcing harness can hold both threads on the same branch only while that branch is unserialized. Once this conversion serializes it, the second thread never reaches the gate, so the gate is relaxed here as part of the conversion rather than inherited untouched — inherited untouched it hangs rather than passes. The invariant that survives is the one the scenario asserts, not the harness that forced it.
 
 ## Verification
 
