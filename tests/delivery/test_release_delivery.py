@@ -1,6 +1,6 @@
-"""Behaviour tests for `_deliver_release`, the module-level fan-out that a
-staging/release push registers as one isolated background task: it resolves
-the required-language union once, builds the release note once via
+"""Behaviour tests for `ReleaseDelivery.deliver`, the method a staging/release
+push registers as one isolated background task: it resolves the
+required-language union once, builds the release note once via
 `Localizer.report_notes`, cuts a GitHub release, and delivers the
 version-headed Telegram note.
 
@@ -13,8 +13,8 @@ the fan-out reads and calls.
 
 from dataclasses import dataclass
 
+from src.delivery.service import ReleaseDelivery
 from src.ingestion.models import PushEvent
-from src.ingestion.router import _deliver_release
 from src.versioning.versioner import Version
 
 ORG_ID = 244165546
@@ -78,8 +78,8 @@ class FakePlanResolver:
 
 
 class FakeReport:
-    """Opaque sentinel — `_deliver_release` never inspects it, only passes
-    it through to `localizer.report_notes`."""
+    """Opaque sentinel — `ReleaseDelivery.deliver` never inspects it, only
+    passes it through to `localizer.report_notes`."""
 
 
 class FakeLocalizer:
@@ -141,21 +141,32 @@ def _build_release_report(calls: list[str]):
     return _build
 
 
+@dataclass
+class Fakes:
+    mirror: FakeMirror
+    versioner: FakeVersioner
+    localizer: FakeLocalizer
+    github_release_client: FakeGitHubReleaseClient
+    delivery_service: FakeDeliveryService
+    changelog_client: FakeChangelogClient
+
+
 def _collaborators(
     *,
     branch: str,
     version: Version | None,
     plan: FakePlan,
     notes: dict[str, str | None],
-    changelog_client=None,
-) -> tuple[list[str], dict]:
+    changelog_client: FakeChangelogClient | None = None,
+) -> tuple[list[str], ReleaseDelivery, Fakes]:
     calls: list[str] = []
     mirror = FakeMirror(calls)
     versioner = FakeVersioner(calls, version)
     localizer = FakeLocalizer(calls, notes)
     github_release_client = FakeGitHubReleaseClient()
     delivery_service = FakeDeliveryService()
-    kwargs = dict(
+    changelog_client = changelog_client if changelog_client is not None else FakeChangelogClient()
+    release_delivery = ReleaseDelivery(
         mirror=mirror,
         delivery_plan_resolver=FakePlanResolver(plan),
         versioner=versioner,
@@ -165,28 +176,33 @@ def _collaborators(
         delivery_service=delivery_service,
         changelog_client=changelog_client,
     )
-    return calls, kwargs
+    fakes = Fakes(
+        mirror=mirror,
+        versioner=versioner,
+        localizer=localizer,
+        github_release_client=github_release_client,
+        delivery_service=delivery_service,
+        changelog_client=changelog_client,
+    )
+    return calls, release_delivery, fakes
 
 
 async def test_one_resolution_feeds_every_channel_with_fixed_union() -> None:
     plan = FakePlan(language="ru", github_release_language="en")
     notes = {"ru": "заметка", "en": "note"}
-    calls, kwargs = _collaborators(branch="staging", version=VERSION, plan=plan, notes=notes)
+    _, release_delivery, fakes = _collaborators(branch="staging", version=VERSION, plan=plan, notes=notes)
 
-    await _deliver_release(_event("staging"), **kwargs)
+    await release_delivery.deliver(_event("staging"))
 
-    localizer: FakeLocalizer = kwargs["localizer"]
-    assert len(localizer.report_notes_calls) == 1
-    _, _, _, union = localizer.report_notes_calls[0]
+    assert len(fakes.localizer.report_notes_calls) == 1
+    _, _, _, union = fakes.localizer.report_notes_calls[0]
     assert union == {"ru", "en"}
 
-    github_release_client: FakeGitHubReleaseClient = kwargs["github_release_client"]
-    [call] = github_release_client.calls
+    [call] = fakes.github_release_client.calls
     _, _, _, _, body, _, _ = call
     assert body == notes["en"]
 
-    delivery_service: FakeDeliveryService = kwargs["delivery_service"]
-    [(_, note, version)] = delivery_service.calls
+    [(_, note, version)] = fakes.delivery_service.calls
     assert note == notes["ru"]
     assert version == VERSION
 
@@ -195,14 +211,13 @@ async def test_union_includes_changelog_app_languages_when_reachable() -> None:
     plan = FakePlan(language="ru", github_release_language="en", changelog_base_url="https://changelog.example")
     notes = {"ru": "note-ru", "en": "note-en", "de": "note-de"}
     changelog_client = FakeChangelogClient(languages=["de"])
-    calls, kwargs = _collaborators(
+    _, release_delivery, fakes = _collaborators(
         branch="staging", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
     )
 
-    await _deliver_release(_event("staging"), **kwargs)
+    await release_delivery.deliver(_event("staging"))
 
-    localizer: FakeLocalizer = kwargs["localizer"]
-    _, _, _, union = localizer.report_notes_calls[0]
+    _, _, _, union = fakes.localizer.report_notes_calls[0]
     assert union == {"ru", "en", "de"}
     assert changelog_client.calls == ["https://changelog.example"]
 
@@ -210,9 +225,9 @@ async def test_union_includes_changelog_app_languages_when_reachable() -> None:
 async def test_mirror_ensure_runs_before_version_and_report() -> None:
     plan = FakePlan()
     notes = {"ru": "note", "en": "note"}
-    calls, kwargs = _collaborators(branch="staging", version=VERSION, plan=plan, notes=notes)
+    calls, release_delivery, _ = _collaborators(branch="staging", version=VERSION, plan=plan, notes=notes)
 
-    await _deliver_release(_event("staging"), **kwargs)
+    await release_delivery.deliver(_event("staging"))
 
     assert calls == [
         "mirror.ensure",
@@ -225,13 +240,12 @@ async def test_mirror_ensure_runs_before_version_and_report() -> None:
 async def test_staging_role_is_prerelease() -> None:
     plan = FakePlan()
     notes = {"ru": "note", "en": "note"}
-    _, kwargs = _collaborators(branch="staging", version=VERSION, plan=plan, notes=notes)
+    _, release_delivery, fakes = _collaborators(branch="staging", version=VERSION, plan=plan, notes=notes)
     event = _event("staging")
 
-    await _deliver_release(event, **kwargs)
+    await release_delivery.deliver(event)
 
-    github_release_client: FakeGitHubReleaseClient = kwargs["github_release_client"]
-    [(org_id, owner, repo, version, _body, prerelease, target_commitish)] = github_release_client.calls
+    [(org_id, owner, repo, version, _body, prerelease, target_commitish)] = fakes.github_release_client.calls
     assert prerelease is True
     assert target_commitish == event.after
     assert owner == event.org_login
@@ -243,13 +257,12 @@ async def test_staging_role_is_prerelease() -> None:
 async def test_release_role_is_not_prerelease() -> None:
     plan = FakePlan()
     notes = {"ru": "note", "en": "note"}
-    _, kwargs = _collaborators(branch="main", version=VERSION, plan=plan, notes=notes)
+    _, release_delivery, fakes = _collaborators(branch="main", version=VERSION, plan=plan, notes=notes)
     event = _event("main")
 
-    await _deliver_release(event, **kwargs)
+    await release_delivery.deliver(event)
 
-    github_release_client: FakeGitHubReleaseClient = kwargs["github_release_client"]
-    [(_, _, _, _, _, prerelease, target_commitish)] = github_release_client.calls
+    [(_, _, _, _, _, prerelease, target_commitish)] = fakes.github_release_client.calls
     assert prerelease is False
     assert target_commitish == event.after
 
@@ -257,34 +270,31 @@ async def test_release_role_is_not_prerelease() -> None:
 async def test_none_version_skips_release_and_delivery() -> None:
     plan = FakePlan()
     notes = {"ru": "note", "en": "note"}
-    calls, kwargs = _collaborators(branch="staging", version=None, plan=plan, notes=notes)
+    calls, release_delivery, fakes = _collaborators(branch="staging", version=None, plan=plan, notes=notes)
 
-    await _deliver_release(_event("staging"), **kwargs)
+    await release_delivery.deliver(_event("staging"))
 
     assert calls == ["mirror.ensure", "versioner.next"]
-    assert kwargs["github_release_client"].calls == []
-    assert kwargs["delivery_service"].calls == []
+    assert fakes.github_release_client.calls == []
+    assert fakes.delivery_service.calls == []
 
 
 async def test_unreachable_changelog_app_still_cuts_release_and_delivers() -> None:
     plan = FakePlan(language="ru", github_release_language="en", changelog_base_url="https://changelog.example")
     notes = {"ru": "note-ru", "en": "note-en"}
     changelog_client = FakeChangelogClient(raises=True)
-    calls, kwargs = _collaborators(
+    _, release_delivery, fakes = _collaborators(
         branch="staging", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
     )
 
-    await _deliver_release(_event("staging"), **kwargs)
+    await release_delivery.deliver(_event("staging"))
 
-    github_release_client: FakeGitHubReleaseClient = kwargs["github_release_client"]
-    assert len(github_release_client.calls) == 1
+    assert len(fakes.github_release_client.calls) == 1
 
-    delivery_service: FakeDeliveryService = kwargs["delivery_service"]
-    [(_, _, version)] = delivery_service.calls
+    [(_, _, version)] = fakes.delivery_service.calls
     assert version == VERSION
 
-    localizer: FakeLocalizer = kwargs["localizer"]
-    _, _, _, union = localizer.report_notes_calls[0]
+    _, _, _, union = fakes.localizer.report_notes_calls[0]
     assert union == {"ru", "en"}
 
     assert changelog_client.entries == []
@@ -294,14 +304,13 @@ async def test_mapped_reachable_staging_push_posts_changelog_entry() -> None:
     plan = FakePlan(language="ru", github_release_language="en", changelog_base_url="https://changelog.example")
     notes = {"ru": "note-ru", "en": "note-en", "de": "note-de"}
     changelog_client = FakeChangelogClient(languages=["ru", "en", "de"])
-    _, kwargs = _collaborators(
+    _, release_delivery, fakes = _collaborators(
         branch="staging", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
     )
 
-    await _deliver_release(_event("staging"), **kwargs)
+    await release_delivery.deliver(_event("staging"))
 
-    github_release_client: FakeGitHubReleaseClient = kwargs["github_release_client"]
-    [(_, _, _, _, _, _, _)] = github_release_client.calls
+    [(_, _, _, _, _, _, _)] = fakes.github_release_client.calls
     github_url = "https://github.com/example/repo/releases/tag/v1.2.0-rc"
 
     [(base_url, entry)] = changelog_client.entries
@@ -316,11 +325,11 @@ async def test_mapped_release_push_posts_production_changelog_entry() -> None:
     plan = FakePlan(language="ru", github_release_language="en", changelog_base_url="https://changelog.example")
     notes = {"ru": "note-ru", "en": "note-en", "de": "note-de"}
     changelog_client = FakeChangelogClient(languages=["ru", "en", "de"])
-    _, kwargs = _collaborators(
+    _, release_delivery, _ = _collaborators(
         branch="main", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
     )
 
-    await _deliver_release(_event("main"), **kwargs)
+    await release_delivery.deliver(_event("main"))
 
     [(_, entry)] = changelog_client.entries
     assert entry.environment == "production"
@@ -330,30 +339,30 @@ async def test_unmapped_repo_posts_no_changelog_entry_but_still_delivers() -> No
     plan = FakePlan(language="ru", github_release_language="en", changelog_base_url=None)
     notes = {"ru": "note-ru", "en": "note-en"}
     changelog_client = FakeChangelogClient(languages=["ru", "en", "de"])
-    _, kwargs = _collaborators(
+    _, release_delivery, fakes = _collaborators(
         branch="staging", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
     )
 
-    await _deliver_release(_event("staging"), **kwargs)
+    await release_delivery.deliver(_event("staging"))
 
     assert changelog_client.entries == []
     assert changelog_client.calls == []
-    assert len(kwargs["github_release_client"].calls) == 1
-    assert len(kwargs["delivery_service"].calls) == 1
+    assert len(fakes.github_release_client.calls) == 1
+    assert len(fakes.delivery_service.calls) == 1
 
 
 async def test_app_unreachable_at_entry_still_delivered_and_raise_swallowed() -> None:
     plan = FakePlan(language="ru", github_release_language="en", changelog_base_url="https://changelog.example")
     notes = {"ru": "note-ru", "en": "note-en", "de": "note-de"}
     changelog_client = FakeChangelogClient(languages=["ru", "en", "de"], entry_raises=True)
-    _, kwargs = _collaborators(
+    _, release_delivery, fakes = _collaborators(
         branch="staging", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
     )
 
-    await _deliver_release(_event("staging"), **kwargs)
+    await release_delivery.deliver(_event("staging"))
 
-    assert len(kwargs["github_release_client"].calls) == 1
-    assert len(kwargs["delivery_service"].calls) == 1
+    assert len(fakes.github_release_client.calls) == 1
+    assert len(fakes.delivery_service.calls) == 1
     assert changelog_client.entries == []
 
 
@@ -361,13 +370,12 @@ async def test_changelog_entry_reuses_config_and_report_notes_without_re_derivin
     plan = FakePlan(language="ru", github_release_language="en", changelog_base_url="https://changelog.example")
     notes = {"ru": "note-ru", "en": "note-en", "de": "note-de"}
     changelog_client = FakeChangelogClient(languages=["ru", "en", "de"])
-    kwargs_calls, kwargs = _collaborators(
+    _, release_delivery, fakes = _collaborators(
         branch="staging", version=VERSION, plan=plan, notes=notes, changelog_client=changelog_client
     )
 
-    await _deliver_release(_event("staging"), **kwargs)
+    await release_delivery.deliver(_event("staging"))
 
     assert len(changelog_client.entries) == 1
     assert len(changelog_client.calls) == 1
-    localizer: FakeLocalizer = kwargs["localizer"]
-    assert len(localizer.report_notes_calls) == 1
+    assert len(fakes.localizer.report_notes_calls) == 1

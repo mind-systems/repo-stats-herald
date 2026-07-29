@@ -12,7 +12,7 @@ from src.core.config import get_settings
 from src.core.db import create_pool
 from src.delivery.changelog_client import ChangelogClient
 from src.delivery.github_release import GitHubReleaseClient
-from src.delivery.service import DeliveryService
+from src.delivery.service import DeliveryService, ReleaseDelivery
 from src.delivery.telegram import TelegramClient
 from src.episodic.linked_change import LinkedChangeResolver
 from src.episodic.store import PgEpisodicStore
@@ -115,6 +115,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.changelog_client = ChangelogClient()
         app.state.build_release_report = functools.partial(
             release_report, mirror=mirror, collector=collector, resolver=resolver, reasoner=reasoner
+        )
+        app.state.release_delivery = ReleaseDelivery(
+            mirror=mirror,
+            delivery_plan_resolver=app.state.delivery_plan_resolver,
+            versioner=app.state.versioner,
+            build_release_report=app.state.build_release_report,
+            localizer=app.state.localizer,
+            github_release_client=app.state.github_release_client,
+            delivery_service=app.state.delivery_service,
+            changelog_client=app.state.changelog_client,
         )
     else:
         logger.warning("canonical-ref sync disabled: GitHub App, mirror, or org-login settings absent")

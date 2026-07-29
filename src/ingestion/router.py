@@ -1,4 +1,3 @@
-import functools
 import hashlib
 import hmac
 import json
@@ -12,7 +11,6 @@ from fastapi.responses import JSONResponse
 
 from src.commits.collector import EMPTY_TREE_SHA
 from src.core.config import get_settings
-from src.delivery.changelog_client import ChangelogEntry
 from src.ingestion.models import InstallationEvent, PushCommit, PushEvent
 from src.routing.models import BranchRole
 from src.routing.resolver import role_for_branch
@@ -20,7 +18,6 @@ from src.routing.resolver import role_for_branch
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-_ENVIRONMENT_BY_ROLE = {BranchRole.STAGING: "staging", BranchRole.RELEASE: "production"}
 _CREATION_BEFORE_SHA = "0" * 40
 
 
@@ -42,91 +39,6 @@ async def _run_isolated_backfill(knowledge_sync, repo: str, org_id: int) -> None
         await knowledge_sync.backfill(repo, org_id)
     except Exception:
         logger.exception("backfill failed: repo=%s org_id=%s", repo, org_id)
-
-
-async def _deliver_release(
-    event: PushEvent,
-    *,
-    mirror,
-    delivery_plan_resolver,
-    versioner,
-    build_release_report,
-    localizer,
-    github_release_client,
-    delivery_service,
-    changelog_client=None,
-) -> None:
-    """Cuts the GitHub release and delivers the version-headed Telegram note
-    for a staging/release push, resolving the required-language union once
-    and building the release note once (`Localizer.report_notes`) so every
-    channel is fed from the same localization pass. When the pushed repo is
-    mapped to a changelog app and it is reachable, the release note is also
-    posted as a `ChangelogEntry` — the last leg of the fan-out, run after the
-    GitHub release and the Telegram send.
-
-    The changelog-app leg (`changelog_client` / `plan.changelog_base_url`)
-    degrades gracefully: when either is absent, or the app is unreachable at
-    `config` or `entry`, the union stays the fixed-channel languages and this
-    delivery proceeds without it — an unreachable changelog app never blocks
-    the GitHub release or the Telegram delivery.
-    """
-    role = role_for_branch(event.branch)
-
-    # First, never relying on `knowledge_sync` having ensured — background
-    # task order across the registered tasks is not a contract.
-    mirror.ensure(event.repo, event.org_id)
-
-    version = versioner.next(event.repo, role, event.before, event.after)
-    if version is None:
-        # A back-merge/skip case: no staging-unique work, nothing to cut,
-        # no version header to send.
-        return
-
-    plan = delivery_plan_resolver.resolve(event.org_id, event.repo, event.branch)
-
-    union = {plan.language, plan.github_release_language}
-    base_url = getattr(plan, "changelog_base_url", None)
-    app_available = changelog_client is not None and bool(base_url)
-    declared_languages: list[str] = []
-    if app_available:
-        try:
-            declared_languages = await changelog_client.config(base_url)
-            union |= set(declared_languages)
-        except Exception:
-            logger.exception("changelog app unreachable for repo=%s org_id=%s", event.repo, event.org_id)
-            app_available = False
-
-    report = build_release_report(event.repo, event.org_id, event.branch)
-    notes = await localizer.report_notes(report, event.repo, event.org_id, union)
-
-    github_url = await github_release_client.create(
-        event.org_id,
-        event.org_login,
-        event.repo,
-        version,
-        notes.get(plan.github_release_language) or "",
-        role is BranchRole.STAGING,
-        event.after,
-    )
-    logger.info("github release created: repo=%s org_id=%s url=%s", event.repo, event.org_id, github_url)
-
-    await delivery_service.deliver(plan, notes.get(plan.language) or "", version=version)
-
-    if app_available:
-        try:
-            await changelog_client.entry(
-                base_url,
-                ChangelogEntry(
-                    version=str(version),
-                    environment=_ENVIRONMENT_BY_ROLE[role],
-                    summaries={lang: notes[lang] or "" for lang in declared_languages},
-                    github_url=github_url,
-                ),
-            )
-        except Exception:
-            logger.exception(
-                "changelog entry failed for repo=%s org_id=%s", event.repo, event.org_id
-            )
 
 
 def _verify_signature(body: bytes, header: str | None, secret: str) -> bool:
@@ -209,23 +121,9 @@ async def receive_github_webhook(
 
         role = role_for_branch(event.branch)
         if role in (BranchRole.STAGING, BranchRole.RELEASE):
-            state = request.app.state
-            collaborators = {
-                "mirror": getattr(state, "mirror", None),
-                "delivery_plan_resolver": getattr(state, "delivery_plan_resolver", None),
-                "versioner": getattr(state, "versioner", None),
-                "build_release_report": getattr(state, "build_release_report", None),
-                "localizer": getattr(state, "localizer", None),
-                "github_release_client": getattr(state, "github_release_client", None),
-                "delivery_service": getattr(state, "delivery_service", None),
-            }
-            if all(value is not None for value in collaborators.values()):
-                task = functools.partial(
-                    _deliver_release,
-                    changelog_client=getattr(state, "changelog_client", None),
-                    **collaborators,
-                )
-                background_tasks.add_task(_run_isolated, "release_delivery", task, event)
+            release_delivery = getattr(request.app.state, "release_delivery", None)
+            if release_delivery is not None:
+                background_tasks.add_task(_run_isolated, "release_delivery", release_delivery.deliver, event)
             else:
                 logger.info(
                     "release delivery skipped: required collaborators absent (org_id=%s repo=%s)",
