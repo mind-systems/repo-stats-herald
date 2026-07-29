@@ -13,10 +13,10 @@ product in one organization must be served.
 
 An organization is not a product. Under one GitHub organization `mind-systems` live two
 unrelated products — a health platform across seven repositories (`mind_api`, `mind_mcp`,
-`mind_mobile`, `mind_web`, …) and a trading platform across four (`tradeoxy_core`,
-`tradeoxy_broker`, …). The current model has no name for that middle grouping, so it defaults
+`mind_mobile`, `mind_web`, …) and an unrelated platform in another domain, spanning its own
+repositories. The current model has no name for that middle grouping, so it defaults
 to the organization — and [org-wide retrieval](../behavior/narration.md#cross-project-narration)
-would blend a trading change into a health project's context, drawing ripple where none exists.
+would blend a change from that other platform into a health project's context, drawing ripple where none exists.
 
 The grouping cannot be reliably inferred. A repository that declares itself a coordination
 layer and lists its members can seed it (see [project-graph seeding](../behavior/understanding.md#seeding-from-coordination-roots)),
@@ -88,7 +88,7 @@ dependency edge, and conflating them loses information:
   product though neither "depends on" the other for ripple.
 - **Dependency** is a directed edge between products — a contract one product owns and another
   consumes — and it is what [cross-project narration](../behavior/narration.md#cross-project-narration)
-  follows to frame a change's effect elsewhere. Two separate products (`mind`, `tradeoxy`) can
+  follows to frame a change's effect elsewhere. Two separate products can
   share such an edge without being one product.
 
 Within-product coherence runs on membership; cross-product ripple runs on dependency. The graph's

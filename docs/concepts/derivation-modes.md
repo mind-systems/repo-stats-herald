@@ -12,7 +12,7 @@ memory and when a no- or poor-harness project must be served.
 
 A repo is not "an ai-factory repo" or "a code-only repo" for all time. Its harness —
 the curated artifacts that make it legible — *appears and matures* over its history.
-Every ai-factory repo predates its own `.ai-factory/`; `tradeoxy_broker` grew its docs
+Every ai-factory repo predates its own `.ai-factory/`; `mind_api` grew its docs
 gradually. So the derivation engine's source is a function of **how rich the harness is
 at the point in the timeline being read**, not a label fixed to the repo.
 
