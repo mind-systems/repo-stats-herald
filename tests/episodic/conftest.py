@@ -3,6 +3,7 @@ import subprocess
 from collections.abc import AsyncGenerator, Callable, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import asyncpg
 import pytest
@@ -22,8 +23,8 @@ EMBEDDING_DIM = 768
 def _dsn() -> str:
     host = os.environ.get("POSTGRES_HOST", "localhost")
     port = os.environ.get("POSTGRES_PORT", "5432")
-    user = os.environ.get("POSTGRES_USER", "herald_username")
-    password = os.environ.get("POSTGRES_PASSWORD", "herald_password")
+    user = quote(os.environ.get("POSTGRES_USER", "herald_username"), safe="")
+    password = quote(os.environ.get("POSTGRES_PASSWORD", "herald_password"), safe="")
     db = os.environ.get("POSTGRES_DB", "herald_database")
     return f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
