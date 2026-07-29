@@ -10,6 +10,7 @@ from fastapi import APIRouter, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
+from src.commits.collector import EMPTY_TREE_SHA
 from src.core.config import get_settings
 from src.delivery.changelog_client import ChangelogEntry
 from src.ingestion.models import InstallationEvent, PushCommit, PushEvent
@@ -20,6 +21,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 _ENVIRONMENT_BY_ROLE = {BranchRole.STAGING: "staging", BranchRole.RELEASE: "production"}
+_CREATION_BEFORE_SHA = "0" * 40
 
 
 async def _run_isolated(label: str, task: Callable[[PushEvent], Awaitable[None]], event: PushEvent) -> None:
@@ -140,12 +142,13 @@ def _parse_push_event(body: bytes) -> PushEvent:
         )
         for commit in payload["commits"]
     )
+    before = EMPTY_TREE_SHA if payload["before"] == _CREATION_BEFORE_SHA else payload["before"]
     return PushEvent(
         org_id=payload["organization"]["id"],
         org_login=payload["organization"]["login"],
         repo=payload["repository"]["name"],
         branch=payload["ref"].removeprefix("refs/heads/"),
-        before=payload["before"],
+        before=before,
         after=payload["after"],
         commits=commits,
     )
