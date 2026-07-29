@@ -34,6 +34,16 @@ async def _run_isolated(label: str, task: Callable[[PushEvent], Awaitable[None]]
         logger.exception("push background task failed: %s", label)
 
 
+async def _run_isolated_backfill(knowledge_sync, repo: str, org_id: int) -> None:
+    """Runs one repo's semantic backfill in isolation, so its failure cannot
+    abort a sibling repo's backfill queued on the same `BackgroundTasks`
+    (Starlette runs them sequentially and stops at the first exception)."""
+    try:
+        await knowledge_sync.backfill(repo, org_id)
+    except Exception:
+        logger.exception("backfill failed: repo=%s org_id=%s", repo, org_id)
+
+
 async def _deliver_release(
     event: PushEvent,
     *,
@@ -233,6 +243,12 @@ async def receive_github_webhook(
         store = request.app.state.served_repo_store
         await store.add(installation_event.org_id, installation_event.repos_added)
         await store.remove(installation_event.org_id, installation_event.repos_removed)
+
+        knowledge_sync = getattr(request.app.state, "knowledge_sync", None)
+        if knowledge_sync is not None:
+            for repo in installation_event.repos_added:
+                background_tasks.add_task(_run_isolated_backfill, knowledge_sync, repo, installation_event.org_id)
+
         logger.info(
             "served repos updated: org_id=%s added=%d removed=%d",
             installation_event.org_id,
