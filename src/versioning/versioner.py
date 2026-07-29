@@ -120,8 +120,11 @@ class Versioner:
     ) -> Version | None:
         exclude_ref = self._mirror.default_branch(repo)
         if not self._collector.new_commits(bare, before, after, exclude_ref):
-            # A back-merge (fast-forward or via a merge commit) that brings
-            # no staging-unique non-merge work — no bump, no spurious `-rc`.
+            # Only a genuine empty range reaches here now: a back-merge
+            # (fast-forward or via a merge commit) that brings no
+            # staging-unique non-merge work — no bump, no spurious `-rc`.
+            # A `git` failure raises `CommitCollectionError` instead and
+            # never lands in this branch.
             return None
 
         if not parsed:

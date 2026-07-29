@@ -235,8 +235,9 @@ class GitCommitCollector:
         commit itself and excluding `exclude_ref` drops anything already
         reachable from it, so a fast-forward OR merge-commit back-merge that
         pulls `exclude_ref` down with no unique non-merge work yields an
-        empty tuple. Read-only and no-raise: an empty tuple on non-zero
-        exit.
+        empty tuple. An empty tuple therefore means only a genuine empty
+        range; a non-zero `git` exit raises `CommitCollectionError` instead
+        of being mistaken for one.
 
         The exclusion is written as a literal `^exclude_ref` argument rather
         than the `--not` flag so `--end-of-options` can precede BOTH
@@ -261,7 +262,9 @@ class GitCommitCollector:
             check=False,
         )
         if result.returncode != 0:
-            return ()
+            raise CommitCollectionError(
+                f"git rev-list failed for {before}..{after} ^{exclude_ref}: {result.stderr.strip()}"
+            )
         return tuple(line for line in result.stdout.splitlines() if line.strip())
 
     def _branch_names(self, repo_path: str) -> list[str]:
