@@ -94,3 +94,52 @@ summarizer = Summarizer(
 - ❌ **Reaching into another feature** — importing its `service.py`/`models.py` internals rather than depending on its public class.
 - ❌ **Logic in entry points** — parsing/collecting/summarizing inside a router or a `scripts/*` file. Entry points only assemble and delegate.
 - ❌ **Hardcoded secrets or host details** — Ollama URL, SSH host/key, tokens. Always from env via `Settings`; never in committed code.
+
+## Features (roadmap-prune v2)
+
+| Feature | Hashes |
+|---------|--------|
+| **Change summarization & the model boundary** | |
+| Read a repo's commit history | 8b2a8a8 38f9eb3 d47f195 |
+| Summarize a commit range into release notes | ce763e4 4dec969 |
+| Generate and embed text through a model-agnostic boundary | 2c020c0 a2a7b56 1ef0f26 |
+| **Ingestion & authorization** | |
+| Receive signed GitHub App push webhooks | e417618 fd454ae |
+| Serve only allowlisted organizations | 177bcdc |
+| Track which repositories the installation reaches | ae8cd04 |
+| **Repo mirror** | |
+| Mirror a served repo under GitHub App credentials | b7e7a9b 2432a1b |
+| **Semantic memory** | |
+| Store and search project knowledge by meaning | 9a12031 e9f89b2 |
+| Index a project's curated artifacts | 6beac1c d551b5b |
+| Keep a project's knowledge fresh from its canonical ref | 0956f17 |
+| Understand a code-only project at feature level | e0f6435 84a84ac 69cbb37 67c869d |
+| **Episodic memory** | |
+| Append and query a project's change history | 10df41c c5c4a5f |
+| Resolve a push to its linked change | ec5eecd c7e3e00 |
+| Record every served push as an episode | b158c93 |
+| Backfill a repo's history into episodic memory | e415d23 1e632a8 |
+| **Project graph** | |
+| Register directed cross-project edges | 319facb b88b7c9 |
+| Seed member edges from a coordination root | cd510dd |
+| **Reasoning & narration** | |
+| Answer a question from both memories | 27e3575 0740a80 |
+| Reach neighbouring projects in an answer | d7702e5 |
+| Narrate a change as feature-level prose | b8a7b56 |
+| Produce a note per requested language | 5283570 dc97def |
+| **Delivery & routing** | |
+| Route a push by branch role | e984bb3 |
+| Post a note to Telegram | 7ff56db 1167e7f |
+| **Reporting** | |
+| Compose a report from configured sections | ca15519 4573aa6 |
+| Deliver scheduled daily and weekly reports | a16824f |
+| Build a report in each channel's language | af57a36 |
+| **Releases & the changelog protocol** | |
+| Assign a version from the repo's own tags | 0783684 |
+| Report the window since the last deploy | 366e882 e3972ec |
+| Cut a GitHub release with a version header | 1bb7597 |
+| Publish a changelog entry to a mapped app | 99008e3 2dafad8 |
+| **Verification** | |
+| Run producer quality against fixed eval cases | 313f82b c2b33ed f88d3da 0cef3a6 |
+| **Internal** | |
+| Roadmap drop history | 6b1b1de |

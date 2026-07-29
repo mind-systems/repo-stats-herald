@@ -1,6 +1,6 @@
 # 21.3 — Report eval cases with no reference
 
-**Phase:** 21 — Ground truth for the eval harness. Independent of 21.1. Complements 21.2 (the reference-authoring task) without depending on it — this task is useful before, during, and after the notes are written, since it reports whatever is missing at run time.
+**Phase:** 21 — Ground truth for the eval harness. Independent of 21.1. The reference notes are already authored, so the report finds nothing missing today — its value is standing: a case added later without a note, or a note removed, becomes loud instead of silent.
 
 ## Current state
 
@@ -20,7 +20,7 @@ The new check follows the same shape as the existing validation already at the t
 
 ## Guards
 
-- Non-fatal: every output is still written, and the process exit status is unchanged, so the harness keeps working normally while references are still being authored.
+- Non-fatal: every output is still written, and the process exit status is unchanged, so a case without a note never breaks a run.
 - Presence checking only — this task adds no diffing, scoring, or judging logic of any kind.
 - The existing per-case `wrote <path>` line is untouched; the summary is additive, printed once at the end of the run.
 

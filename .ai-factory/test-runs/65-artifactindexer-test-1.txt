@@ -1,6 +1,0 @@
-$ `make test` (equivalently `uv run pytest tests/knowledge/test_artifact_indexer.py`)
-exit code: 2
-elapsed: 0.2s
-
-/bin/sh: -c: line 0: syntax error near unexpected token `equivalently'
-/bin/sh: -c: line 0: ``make test` (equivalently `uv run pytest tests/knowledge/test_artifact_indexer.py`)'

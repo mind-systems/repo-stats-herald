@@ -3,9 +3,9 @@ check that real git output still matches `parse_log`'s expectations, run
 against the shared `git_repo` / `commit_at` fixtures in
 `tests/commits/conftest.py`.
 
-The three-file split (`test_collector.py` / `test_parse_log.py` /
-`test_collect.py`) is documented in
-`.ai-factory/specs/77-commit-collector-parse-test-plan.md`.
+The suite splits three ways: `test_parse_log.py` drives the pure parse with
+no git process, `test_collector.py` covers the collector's other git-backed
+queries, and this file checks `collect` end to end against real git output.
 """
 
 import subprocess

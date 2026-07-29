@@ -1,8 +1,7 @@
 """Drives `Versioner.next` over a real throwaway git repo through a
-lightweight fake mirror, per the spec's verification list —
-`.ai-factory/specs/19-versioning.md`. Back-merge detection is a mandated
-red-test surface: a wrong check silently manufactures a spurious `-rc` or
-skips a real release.
+lightweight fake mirror. Back-merge detection is the surface that most needs
+covering: a wrong check silently manufactures a spurious `-rc` or skips a
+real release.
 """
 
 import subprocess

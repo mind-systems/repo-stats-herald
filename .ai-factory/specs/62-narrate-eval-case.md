@@ -1,6 +1,6 @@
 # 21.1 — Wire a `narrate` case into the eval harness
 
-**Phase:** 21 — Ground truth for the eval harness. Independent of 21.2 and 21.3 — adds a case entry only, touches neither reference authoring nor the runner's reporting.
+**Phase:** 21 — Ground truth for the eval harness. Independent of 21.3 — adds a case entry only, touching neither the reference notes nor the runner's reporting.
 
 ## Current state
 

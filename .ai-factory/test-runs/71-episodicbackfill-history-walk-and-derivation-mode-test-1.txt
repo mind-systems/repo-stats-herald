@@ -1,6 +1,0 @@
-$ `uv run pytest tests/episodic/test_backfill.py` (git-only suite; runs without Postgres). The Postgres round-trip module runs separately: `uv run pytest tests/episodic/test_backfill_store.py`.
-exit code: 2
-elapsed: 0.1s
-
-/bin/sh: -c: line 0: syntax error near unexpected token `git-only'
-/bin/sh: -c: line 0: ``uv run pytest tests/episodic/test_backfill.py` (git-only suite; runs without Postgres). The Postgres round-trip module runs separately: `uv run pytest tests/episodic/test_backfill_store.py`.'

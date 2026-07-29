@@ -4,9 +4,9 @@ builds the raw log text as it would arrive from `_run_log` — records
 joined by `\\x00` fields (sha, author, subject, body, tail), with the
 leading `\\x00` marker `_PRETTY_FORMAT` prefixes to every record.
 
-The three-file split (`test_collector.py` / `test_parse_log.py` /
-`test_collect.py`) is documented in
-`.ai-factory/specs/77-commit-collector-parse-test-plan.md`.
+The suite splits three ways: this file drives the pure parse, `test_collect.py`
+checks `collect` end to end against real git output, and `test_collector.py`
+covers the collector's other git-backed queries.
 """
 
 import pytest

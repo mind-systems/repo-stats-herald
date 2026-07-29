@@ -1,6 +1,6 @@
 # 21.4 — Pin the eval cases to fixed commit ranges
 
-**Phase:** 21 — Ground truth for the eval harness. Runs before 21.2 — the manual authoring pass is only meaningful once each case's input stops moving.
+**Phase:** 21 — Ground truth for the eval harness. Must land before any harness run — the reference notes are already authored against the fixed window, so until the cases are pinned a run reports differences that are not quality problems.
 
 ## Current state
 
@@ -8,7 +8,7 @@ Three cases declare a range relative to `HEAD`. The harness resolves it at run t
 
 ## Change
 
-Replace the relative range in the three affected cases with the fixed range, and add a short comment in the case file recording why the range is pinned rather than relative, so a future edit does not helpfully "modernize" it back to `HEAD`.
+Replace the relative range in the three affected cases with the fixed `0783684467d191a44bea94aa1de521f2cb23d6df..1bb7597925f54d42184d317c4f5eb2b2fde9aabe` — three commits that each flip one roadmap task to `[x]`, so a linked change resolves non-empty — and add a short comment in the case file recording why the range is pinned rather than relative, so a future edit does not helpfully "modernize" it back to `HEAD`.
 
 ## Files & types
 
