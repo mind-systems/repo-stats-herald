@@ -5,6 +5,13 @@ TELEGRAM_MESSAGE_LIMIT = 4096
 _REDACTED_ENDPOINT = "https://api.telegram.org/bot<redacted>/sendMessage"
 
 
+def _utf16_cost(ch: str) -> int:
+    """UTF-16 code-unit cost of a single code point: 1 inside the Basic
+    Multilingual Plane, 2 for an astral-plane code point (encoded as a
+    surrogate pair)."""
+    return 1 if ord(ch) < 0x10000 else 2
+
+
 class TelegramSendError(Exception):
     """Signals that a `TelegramClient.send` call failed (non-2xx response or
     transport failure), carrying only a status code and a redacted endpoint —
@@ -23,12 +30,22 @@ class TelegramClient:
         self._timeout = timeout
 
     def _chunks(self, text: str) -> list[str]:
-        if len(text) <= TELEGRAM_MESSAGE_LIMIT:
+        if sum(_utf16_cost(ch) for ch in text) <= TELEGRAM_MESSAGE_LIMIT:
             return [text]
-        return [
-            text[i : i + TELEGRAM_MESSAGE_LIMIT]
-            for i in range(0, len(text), TELEGRAM_MESSAGE_LIMIT)
-        ]
+        parts: list[str] = []
+        current: list[str] = []
+        current_cost = 0
+        for ch in text:
+            cost = _utf16_cost(ch)
+            if current and current_cost + cost > TELEGRAM_MESSAGE_LIMIT:
+                parts.append("".join(current))
+                current = []
+                current_cost = 0
+            current.append(ch)
+            current_cost += cost
+        if current:
+            parts.append("".join(current))
+        return parts
 
     async def send(self, chat_id: str, text: str) -> None:
         url = f"https://api.telegram.org/bot{self._token}/sendMessage"

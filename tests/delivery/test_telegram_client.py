@@ -79,6 +79,21 @@ async def test_over_length_message_splits_into_ordered_lossless_parts(
     assert "".join(parts) == text
 
 
+async def test_astral_dense_message_splits_by_utf16_length(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _install_fake_transport(monkeypatch)
+    client = TelegramClient(TOKEN)
+    text = "😀" * 2049  # each code point costs 2 UTF-16 units: len(text) <= 4096, UTF-16 length > 4096
+
+    await client.send("chat", text)
+
+    parts = [body["text"] for _, body in calls]
+    assert len(parts) >= 2
+    assert all(len(part.encode("utf-16-le")) // 2 <= 4096 for part in parts)
+    assert "".join(parts) == text
+
+
 def _assert_no_token_reachable(exc: TelegramSendError) -> None:
     assert TOKEN not in str(exc)
     assert TOKEN not in repr(exc)
