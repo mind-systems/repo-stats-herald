@@ -79,8 +79,8 @@ def make_entry() -> Callable[..., EpisodicEntry]:
 _TRUNK = "trunk"
 
 
-def _git(*args: str, cwd: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)
+def _git(*args: str, cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True, env=env)
 
 
 def _commit(message: str, cwd: Path) -> str:
@@ -200,3 +200,75 @@ def merge_history(git_repo: Path) -> Callable[[], tuple[Path, str, str]]:
 @pytest.fixture
 def resolver() -> LinkedChangeResolver:
     return LinkedChangeResolver(GitCommitCollector(), AiFactorySourceStrategy())
+
+
+# --- General-purpose history builder for `EpisodicBackfill` -----------------
+#
+# `roadmap_history`/`merge_history` above are tailored to
+# `LinkedChangeResolver.resolve`'s roadmap-only fixtures. `EpisodicBackfill`'s
+# own tests need finer control per commit — arbitrary paths (not just the
+# roadmap file), raw bytes (a deliberately non-UTF-8 blob), path removal (a
+# path deleted mid-step), a pinned author/committer timestamp (the
+# hazard-c "run moment vs. historical timestamp" assertions), and an
+# entirely empty commit message (`--allow-empty-message`, only reachable
+# that way).
+
+
+@pytest.fixture
+def commit_snapshot() -> Callable[..., str]:
+    """Writes/removes files in `repo` and commits, returning the new commit
+    SHA.
+
+    `write` maps a relative path to its new content — `str` for UTF-8 text,
+    `bytes` for raw content (e.g. deliberately invalid UTF-8, written
+    directly so no decoding step can reject it first). `remove` lists
+    tracked paths to delete before committing. `when` pins both
+    `GIT_AUTHOR_DATE` and `GIT_COMMITTER_DATE` (ISO 8601, e.g.
+    `"2020-01-01T00:00:00+00:00"`) so a historical commit carries a
+    controlled, non-current timestamp instead of the run moment.
+    `allow_empty_message` is required for the one case that commits with no
+    message at all (`message=""`).
+    """
+
+    def _commit_snapshot(
+        repo: Path,
+        message: str = "snapshot",
+        write: dict[str, str | bytes] | None = None,
+        remove: Iterable[str] = (),
+        when: str | None = None,
+        allow_empty_message: bool = False,
+    ) -> str:
+        for rel in remove:
+            if (repo / rel).exists():
+                _git("rm", "-q", "--", rel, cwd=repo)
+
+        for rel, content in (write or {}).items():
+            target = repo / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(content, bytes):
+                target.write_bytes(content)
+            else:
+                target.write_text(content, encoding="utf-8")
+            _git("add", "--", rel, cwd=repo)
+
+        env = None
+        if when is not None:
+            env = {**os.environ, "GIT_AUTHOR_DATE": when, "GIT_COMMITTER_DATE": when}
+
+        args = [
+            "-c",
+            "user.name=herald-test",
+            "-c",
+            "user.email=herald@test.invalid",
+            "commit",
+            "-q",
+            "--allow-empty",
+        ]
+        if allow_empty_message:
+            args.append("--allow-empty-message")
+        args += ["-m", message]
+
+        _git(*args, cwd=repo, env=env)
+        return _git("rev-parse", "HEAD", cwd=repo).stdout.strip()
+
+    return _commit_snapshot
