@@ -55,6 +55,6 @@ None. The plan is internally consistent, grounded in the actual source, complete
 - The `NoDecode` env-path test (Task 14) is preserved as the single guard that would catch a dropped annotation — a real gap the kwargs-based tests cannot cover.
 
 ## Deferred observations
-- Affects: `.ai-factory/specs/70-settings-parsing-test-plan.md` — the spec's Source Overview prose states "Five fields are `Annotated[..., NoDecode]`" but then enumerates seven (`serve_allowlist`, `canonical_refs`, `github_org_logins`, `telegram_channels`, `repo_apps`, `project_edges`, `report_schedules`), which matches the seven `NoDecode` fields in `src/core/config.py`. The plan under review does not restate the count, so no test is affected; this is a cosmetic miscount in the governing spec's narrative, outside this plan's file boundary.
+- Affects: `.ai-factory/specs/70-settings-parsing-test-plan.md` — the spec's Source Overview prose states "Five fields are `Annotated[..., NoDecode]`" but then enumerates seven (`serve_allowlist`, `canonical_refs`, `github_org_logins`, `telegram_channels`, `repo_apps`, `project_edges`, `report_schedules`), which matches the seven `NoDecode` fields in `src/core/config.py`. The plan under review does not restate the count, so no test is affected; this is a cosmetic miscount in the governing spec's narrative, outside this plan's file boundary. [dismissed]
 
 PLAN_REVIEW_PASS

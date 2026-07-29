@@ -40,7 +40,7 @@ None.
 - Correctly separates the Postgres round-trip into its own module so the git-only suite runs without a database.
 
 ## Deferred observations
-- Affects: spec 73 / `tests/episodic/test_backfill.py` (Task 3) — Spec gotcha "Don't assert on `LinkedChange.repo`" (the resolver receives the bare path as its `repo` arg, so `change.repo` is a filesystem path, not the repo name; assert the entry's `repo` field, which comes from `run`'s own argument) is not restated in the plan. The plan never directs asserting on `change.repo`, so the risk is low, but an implementer building resolver-mode assertions from the plan alone could trip on it; the governing spec carries the guard.
+- Affects: spec 73 / `tests/episodic/test_backfill.py` (Task 3) — Spec gotcha "Don't assert on `LinkedChange.repo`" (the resolver receives the bare path as its `repo` arg, so `change.repo` is a filesystem path, not the repo name; assert the entry's `repo` field, which comes from `run`'s own argument) is not restated in the plan. The plan never directs asserting on `change.repo`, so the risk is low, but an implementer building resolver-mode assertions from the plan alone could trip on it; the governing spec carries the guard. [dismissed]
 
 ---
 

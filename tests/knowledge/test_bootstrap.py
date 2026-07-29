@@ -174,7 +174,7 @@ def test_holds_no_stored_attribute_exposing_a_knowledge_store_interface(tmp_path
         attr = getattr(bootstrap, name)
         assert not hasattr(attr, "query")
         assert not hasattr(attr, "upsert")
-        assert not hasattr(attr, "delete_by_source")
+        assert not hasattr(attr, "delete")
 
 
 # --- Phase 3: run — traversal and scoping -----------------------------------
