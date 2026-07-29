@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from src.delivery.telegram import TelegramClient
+from src.delivery.telegram import TelegramClient, TelegramSendError
 
 TOKEN = "test-token"
 
@@ -79,12 +79,44 @@ async def test_over_length_message_splits_into_ordered_lossless_parts(
     assert "".join(parts) == text
 
 
+def _assert_no_token_reachable(exc: TelegramSendError) -> None:
+    assert TOKEN not in str(exc)
+    assert TOKEN not in repr(exc)
+    for value in vars(exc).values():
+        assert TOKEN not in str(value)
+        assert TOKEN not in repr(value)
+    assert exc.__cause__ is None
+    assert exc.__context__ is None
+
+
 async def test_bad_token_response_raises_and_is_not_swallowed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    error = httpx.HTTPStatusError("Unauthorized", request=None, response=None)
+    request = httpx.Request("POST", f"https://api.telegram.org/bot{TOKEN}/sendMessage")
+    response = httpx.Response(400, request=request)
+    error = httpx.HTTPStatusError("Bad Request", request=request, response=response)
     _install_fake_transport(monkeypatch, error=error)
     client = TelegramClient(TOKEN)
 
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(TelegramSendError) as exc_info:
         await client.send("chat", "hello")
+
+    exc = exc_info.value
+    assert exc.status_code == 400
+    _assert_no_token_reachable(exc)
+
+
+async def test_transport_failure_raises_and_is_not_swallowed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = httpx.Request("POST", f"https://api.telegram.org/bot{TOKEN}/sendMessage")
+    error = httpx.ConnectError("Connection failed", request=request)
+    _install_fake_transport(monkeypatch, error=error)
+    client = TelegramClient(TOKEN)
+
+    with pytest.raises(TelegramSendError) as exc_info:
+        await client.send("chat", "hello")
+
+    exc = exc_info.value
+    assert exc.status_code is None
+    _assert_no_token_reachable(exc)
