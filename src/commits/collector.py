@@ -26,6 +26,10 @@ _SHORTSTAT_RE = re.compile(r"^\s*\d+ files? changed\b.*$")
 EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
+class CommitCollectionError(Exception):
+    """Signals that a `git` invocation behind a collector query failed (non-zero exit), as distinct from a query that legitimately found nothing."""
+
+
 class GitCommitCollector:
     """Reads commit history from a local git repo (read-only) into domain objects."""
 

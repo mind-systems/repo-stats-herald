@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.commits.collector import EMPTY_TREE_SHA, GitCommitCollector
+from src.commits.collector import EMPTY_TREE_SHA, CommitCollectionError, GitCommitCollector
 
 _TRUNK = "main"
 
@@ -133,6 +133,8 @@ def test_new_commits_empty_for_fast_forward_back_merge(git_repo, commit_at, coll
 
     result = collector.new_commits(str(git_repo), base_sha, after_sha, _TRUNK)
 
+    # Empty tuple = genuine empty range (no staging-unique work), distinct from
+    # a `git` failure, which raises `CommitCollectionError` instead.
     assert result == ()
 
 
@@ -151,6 +153,8 @@ def test_new_commits_empty_for_merge_commit_back_merge(git_repo, commit_at, coll
 
     result = collector.new_commits(str(git_repo), base_sha, merge_sha, _TRUNK)
 
+    # Empty tuple = genuine empty range (no staging-unique work), distinct from
+    # a `git` failure, which raises `CommitCollectionError` instead.
     assert result == ()
 
 
@@ -162,6 +166,16 @@ def test_new_commits_returns_staging_unique_non_merge_commits(git_repo, commit_a
     result = collector.new_commits(str(git_repo), base_sha, staging_sha, _TRUNK)
 
     assert result == (staging_sha,)
+
+
+def test_new_commits_raises_on_git_failure(git_repo, commit_at, collector):
+    # An unresolvable `exclude_ref` makes the underlying `git rev-list ^no-such-branch`
+    # exit non-zero, mirroring the spec's real-world failure mode (an unresolvable
+    # `exclude_ref` / corrupt mirror) — distinct from a genuine empty range.
+    base_sha = commit_at(git_repo, "base")
+
+    with pytest.raises(CommitCollectionError):
+        collector.new_commits(str(git_repo), base_sha, base_sha, "no-such-branch")
 
 
 def test_collect_keeps_a_commit_whose_subject_contains_the_record_separator_byte(git_repo, commit_at, collector):
