@@ -1,14 +1,22 @@
 cases:
+  # range is a fixed commit pair (not HEAD-relative) so this case's input
+  # doesn't drift under evals/reference/herald-recent.md, which is
+  # user-authored — never fabricated by the implementer, same discipline
+  # as herald-narrate.
   - name: herald-recent
     type: summary
     repo: .
-    range: HEAD~3..HEAD
+    range: 0783684467d191a44bea94aa1de521f2cb23d6df..1bb7597925f54d42184d317c4f5eb2b2fde9aabe
     lang: ru
 
+  # range is a fixed commit pair (not HEAD-relative) so this case's input
+  # doesn't drift under evals/reference/herald-recent-en.md, which is
+  # user-authored — never fabricated by the implementer, same discipline
+  # as herald-narrate.
   - name: herald-recent-en
     type: summary
     repo: .
-    range: HEAD~3..HEAD
+    range: 0783684467d191a44bea94aa1de521f2cb23d6df..1bb7597925f54d42184d317c4f5eb2b2fde9aabe
     lang: en
 
   # `root` points at a local checkout of the Mind product's mind_api
@@ -42,10 +50,12 @@ cases:
   # `make eval` writes evals/out/herald-localize.md; the comparison reference
   # evals/reference/herald-localize.md is user-authored — never fabricated
   # by the implementer, same discipline as the summarization/narrate evals.
+  # range is a fixed commit pair (not HEAD-relative) so this case's input
+  # doesn't drift under that reference note, same discipline as herald-narrate.
   - name: herald-localize
     type: localize
     repo: .
-    range: HEAD~3..HEAD
+    range: 0783684467d191a44bea94aa1de521f2cb23d6df..1bb7597925f54d42184d317c4f5eb2b2fde9aabe
     langs: [en, ru]
 
   # range is a fixed commit pair (not HEAD-relative) so this case's input
