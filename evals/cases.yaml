@@ -47,3 +47,14 @@ cases:
     repo: .
     range: HEAD~3..HEAD
     langs: [en, ru]
+
+  # range is a fixed commit pair (not HEAD-relative) so this case's input
+  # doesn't drift under evals/reference/herald-narrate.md, which is
+  # user-authored — never fabricated by the implementer, same discipline
+  # as the other reasoner-family evals. name is pinned to match that
+  # reference file; EvalRunner pairs a case to its reference by name alone.
+  - name: herald-narrate
+    type: narrate
+    repo: "."
+    range: 0783684467d191a44bea94aa1de521f2cb23d6df..1bb7597925f54d42184d317c4f5eb2b2fde9aabe
+    lang: ru
