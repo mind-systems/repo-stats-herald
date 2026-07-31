@@ -44,6 +44,7 @@ from src.summarization.service import Summarizer
 _EVALS_DIR = Path(__file__).resolve().parent.parent / "evals"
 _CASES_FILE = _EVALS_DIR / "cases.yaml"
 _OUT_DIR = _EVALS_DIR / "out"
+_REFERENCE_DIR = _EVALS_DIR / "reference"
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,8 +159,15 @@ class LocalizeCaseHandler(CaseHandler):
 class EvalRunner:
     """Dispatches eval cases to their registered handler and writes outputs."""
 
-    def __init__(self, handlers: dict[str, CaseHandler]) -> None:
+    def __init__(
+        self,
+        handlers: dict[str, CaseHandler],
+        out_dir: Path = _OUT_DIR,
+        reference_dir: Path = _REFERENCE_DIR,
+    ) -> None:
         self._handlers = handlers
+        self._out_dir = out_dir
+        self._reference_dir = reference_dir
 
     async def run(self, cases: list[Case]) -> None:
         unregistered = [
@@ -169,12 +177,26 @@ class EvalRunner:
             listing = ", ".join(f"{name!r} (type={type_!r})" for name, type_ in unregistered)
             raise ValueError(f"unregistered case type(s): {listing}")
 
-        _OUT_DIR.mkdir(parents=True, exist_ok=True)
+        self._out_dir.mkdir(parents=True, exist_ok=True)
         for case in cases:
             text = await self._handlers[case.type].run(case.inputs)
-            out_path = _OUT_DIR / f"{case.name}.md"
+            out_path = self._out_dir / f"{case.name}.md"
             out_path.write_text(text, encoding="utf-8")
             print(f"wrote {out_path}")
+
+        missing = [
+            case.name
+            for case in cases
+            if not (self._reference_dir / f"{case.name}.md").exists()
+        ]
+        if missing:
+            listing = ", ".join(missing)
+            print(
+                f"{len(missing)} of {len(cases)} eval cases have no reference "
+                f"to compare against: {listing}"
+            )
+        else:
+            print(f"all {len(cases)} eval cases have a reference")
 
 
 def _load_cases() -> list[Case]:

@@ -78,7 +78,7 @@ Connection params live in `.env.dev` (`POSTGRES_*`); see `.env.example`. In prod
 
 ## Verification — eval harness
 
-Summary quality is checked against fixed cases, not eyeballed. `evals/cases.yaml` holds cases that each declare a `type`; the runner dispatches by type to a registered handler and writes one `evals/out/<case>.md` per case, with stable filenames. Fields vary by type — a `summary` case carries `{repo, range, lang}`, a `distill` case a `root`, a `reasoner` case a `query`, a `localize` case a `langs` list. `evals/reference/<case>.md` holds user-authored good notes, never fabricated. The harness writes output and does not compare: a run's quality is judged by a person reading an output against its reference. Run any prompt or model change through the harness.
+Summary quality is checked against fixed cases, not eyeballed. `evals/cases.yaml` holds cases that each declare a `type`; the runner dispatches by type to a registered handler and writes one `evals/out/<case>.md` per case, with stable filenames. Fields vary by type — a `summary` case carries `{repo, range, lang}`, a `distill` case a `root`, a `reasoner` case a `query`, a `localize` case a `langs` list. `evals/reference/<case>.md` holds user-authored good notes, never fabricated. The harness writes output and does not compare: a run's quality is judged by a person reading an output against its reference. Once every case's output is written, the run prints a closing summary naming any case with no matching `evals/reference/<case>.md` and stating how many of how many cases had nothing to compare against. This is presence reporting only, not scoring — a missing reference never fails the run or changes its exit status. Run any prompt or model change through the harness.
 
 ## Logging
 
