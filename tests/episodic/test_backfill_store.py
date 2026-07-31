@@ -29,13 +29,13 @@ class _FakeMirror:
         self._repo_path = repo_path
         self._default_branch_name = default_branch_name
 
-    def ensure(self, repo: str, org_id: int) -> None:
+    async def ensure(self, repo: str, org_id: int) -> None:
         pass
 
     def object_store_path(self, repo: str) -> Path:
         return self._repo_path
 
-    def default_branch(self, repo: str) -> str:
+    async def default_branch(self, repo: str) -> str:
         return self._default_branch_name
 
     def tree(self, *args, **kwargs):

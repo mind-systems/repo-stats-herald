@@ -36,9 +36,9 @@ class EpisodicWriter:
         self._collector = collector
 
     async def write(self, push: PushEvent) -> None:
-        self._mirror.ensure(push.repo, push.org_id)
+        await self._mirror.ensure(push.repo, push.org_id)
 
-        with self._mirror.tree(push.repo, push.org_id, push.after) as tree:
+        async with self._mirror.tree(push.repo, push.org_id, push.after) as tree:
             change = self._resolver.resolve(str(tree), push.before, push.after)
             changed_at = self._collector.commit_timestamp(str(tree), push.after)
 

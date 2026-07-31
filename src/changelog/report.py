@@ -44,7 +44,7 @@ class TimeWindow(ReportWindow):
                 "— an unwired window is a composition-root bug"
             )
 
-        ref = resolve_canonical_ref(repo, self.canonical_refs, self.mirror)
+        ref = await resolve_canonical_ref(repo, self.canonical_refs, self.mirror)
         bare = str(self.mirror.object_store_path(repo))
 
         now = datetime.now(timezone.utc)

@@ -34,12 +34,12 @@ class FakeMirror:
         self.tree_open = False
         self.call_log: list[str] = []
 
-    def ensure(self, repo: str, org_id: int) -> None:
+    async def ensure(self, repo: str, org_id: int) -> None:
         self.ensure_calls.append((repo, org_id))
         self.call_log.append("ensure")
 
-    @contextlib.contextmanager
-    def tree(self, repo: str, org_id: int, ref: str):
+    @contextlib.asynccontextmanager
+    async def tree(self, repo: str, org_id: int, ref: str):
         self.tree_calls.append((repo, org_id, ref))
         self.call_log.append("tree")
         self.tree_open = True

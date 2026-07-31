@@ -1,4 +1,4 @@
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -13,12 +13,11 @@ from src.llm.embedder import Embedder
 
 
 class _FakeMirror:
-    """Stub `RepoMirror`. `tree` is a **sync** `@contextmanager` — an
-    `@asynccontextmanager` fake fails with an unrelated `AttributeError` at
-    the call site — that materializes `files` (a `{relative_path: content}`
-    dict) into a scratch `TemporaryDirectory` and yields its `Path`. Records
-    every `ensure`, `tree`, and `default_branch` call so gate tests can
-    assert a collaborator was never even consulted."""
+    """Stub `RepoMirror`. `tree` is an `@asynccontextmanager` that
+    materializes `files` (a `{relative_path: content}` dict) into a scratch
+    `TemporaryDirectory` and yields its `Path`. Records every `ensure`,
+    `tree`, and `default_branch` call so gate tests can assert a
+    collaborator was never even consulted."""
 
     def __init__(
         self,
@@ -36,18 +35,18 @@ class _FakeMirror:
         self.default_branch_calls: list[str] = []
         self.yielded_paths: list[Path] = []
 
-    def ensure(self, repo: str, org_id: int) -> None:
+    async def ensure(self, repo: str, org_id: int) -> None:
         self.ensure_calls.append((repo, org_id))
         self._ensured = True
 
-    def default_branch(self, repo: str) -> str:
+    async def default_branch(self, repo: str) -> str:
         self.default_branch_calls.append(repo)
         if self._require_ensure and not self._ensured:
             raise AssertionError("default_branch called before ensure")
         return self._branch
 
-    @contextmanager
-    def tree(self, repo: str, org_id: int, ref: str):
+    @asynccontextmanager
+    async def tree(self, repo: str, org_id: int, ref: str):
         self.tree_calls.append((repo, org_id, ref))
         with TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)

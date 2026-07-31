@@ -53,7 +53,7 @@ class FakeMirror:
     def __init__(self, calls: list[str]) -> None:
         self._calls = calls
 
-    def ensure(self, repo: str, org_id: int) -> None:
+    async def ensure(self, repo: str, org_id: int) -> None:
         self._calls.append("mirror.ensure")
 
 
@@ -63,7 +63,7 @@ class FakeVersioner:
         self._version = version
         self.next_calls: list[tuple] = []
 
-    def next(self, repo, role, before, after):
+    async def next(self, repo, role, before, after):
         self._calls.append("versioner.next")
         self.next_calls.append((repo, role, before, after))
         return self._version

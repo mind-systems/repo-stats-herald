@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import contextlib
 import os
@@ -5,12 +6,16 @@ import shutil
 import subprocess
 import tempfile
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractContextManager
 from pathlib import Path
+from typing import ParamSpec, TypeVar
 from urllib.parse import urlsplit
 
 from src.github.app_auth import GitHubAppAuth
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 _HTTP_SCHEMES = {"http", "https"}
 
@@ -21,6 +26,16 @@ class RepoMirror:
     checkout. A finished worktree is reclaimed the next time `ensure` runs
     for its repo (see the note on `tree` for why reclamation is deferred
     rather than immediate).
+
+    Every method that shells out to `git` is `async` — the subprocess itself
+    runs off the event loop, on a thread `RepoMirror` owns internally
+    (`_to_thread`), so a long `clone`/`fetch` never stalls it. `ensure` holds
+    a lazily-created per-repo `asyncio.Lock` across its whole body, so two
+    concurrent `ensure` calls for the same never-cloned repo can't both pass
+    the "no clone yet" check and both dispatch `git clone`; `tree` takes no
+    such lock and can run for a repo while that repo's `ensure` is also
+    in flight — git itself keeps a live worktree and an overlapping
+    fetch/prune safe.
 
     Composition-root assembly (`src/main.py`'s `lifespan`, gated on the
     GitHub-App + mirror settings being present): read `Settings`, load the
@@ -51,9 +66,22 @@ class RepoMirror:
         self._run = run
         self._finished_worktrees: list[tuple[Path, Path]] = []
         self._finished_worktrees_lock = threading.Lock()
+        self._ensure_locks: dict[str, asyncio.Lock] = {}
 
     def _bare_path(self, repo: str) -> Path:
         return self._mirror_root / f"{repo}.git"
+
+    def _ensure_lock(self, repo: str) -> asyncio.Lock:
+        """Lazily creates and returns `repo`'s serialization lock. Called
+        only from synchronous code with no `await` in between the lookup and
+        the insert, so two coroutines racing to create the same repo's lock
+        can never both win — plain dict access on the event-loop thread is
+        itself atomic with respect to other coroutines."""
+        lock = self._ensure_locks.get(repo)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._ensure_locks[repo] = lock
+        return lock
 
     def object_store_path(self, repo: str) -> Path:
         """Return `repo`'s bare object store path — the read-only entry
@@ -70,12 +98,15 @@ class RepoMirror:
     def _worktrees_root(self) -> Path:
         return self._mirror_root / "worktrees"
 
-    def default_branch(self, repo: str) -> str:
+    async def default_branch(self, repo: str) -> str:
         """Return `repo`'s default branch, read from its bare mirror's `HEAD`.
 
         The caller must have run `ensure(repo, ...)` first so the bare clone
         exists.
         """
+        return await self._to_thread(self._default_branch_sync, repo)
+
+    def _default_branch_sync(self, repo: str) -> str:
         result = self._run(
             ["git", "symbolic-ref", "--short", "HEAD"],
             cwd=self._bare_path(repo),
@@ -85,7 +116,7 @@ class RepoMirror:
         )
         return result.stdout.strip()
 
-    def sweep_worktrees(self) -> None:
+    async def sweep_worktrees(self) -> None:
         """Startup reclamation: removes every entry under
         `{mirror_root}/worktrees` and runs `git worktree prune` per bare
         repo. `tree()`'s deferred reclamation lives in an in-memory list, so
@@ -103,36 +134,50 @@ class RepoMirror:
             return
         for bare_path in self._mirror_root.glob("*.git"):
             with contextlib.suppress(subprocess.CalledProcessError):
-                self._run_git("worktree", "prune", cwd=bare_path)
+                await self._run_git("worktree", "prune", cwd=bare_path)
 
-    def ensure(self, repo: str, org_id: int) -> None:
-        self._mirror_root.mkdir(parents=True, exist_ok=True)
-        bare_path = self._bare_path(repo)
-        source = self._clone_source(repo, org_id)
-        credential = self._credential_for(source, org_id)
+    async def ensure(self, repo: str, org_id: int) -> None:
+        """Clones `repo` on first sight, else fetches into its existing bare
+        store. Serialized per repo behind a lazily-created `asyncio.Lock`
+        held across the whole call, so two concurrent `ensure` coroutines
+        for the same never-cloned repo can't both see no clone yet and both
+        dispatch `git clone` — a clone is dispatched at most once per repo.
+        """
+        async with self._ensure_lock(repo):
+            self._mirror_root.mkdir(parents=True, exist_ok=True)
+            bare_path = self._bare_path(repo)
+            source = self._clone_source(repo, org_id)
+            credential = self._credential_for(source, org_id)
 
-        if not bare_path.exists():
-            self._run_git(
-                "clone", "--mirror", source, str(bare_path),
-                cwd=self._mirror_root,
-                credential=credential,
-            )
-        else:
-            self._run_git(
-                "fetch", "--prune", "origin",
-                cwd=bare_path,
-                credential=credential,
-            )
+            if not bare_path.exists():
+                await self._run_git(
+                    "clone", "--mirror", source, str(bare_path),
+                    cwd=self._mirror_root,
+                    credential=credential,
+                )
+            else:
+                await self._run_git(
+                    "fetch", "--prune", "origin",
+                    cwd=bare_path,
+                    credential=credential,
+                )
 
-        self._reclaim_finished_worktrees(bare_path)
+            await self._reclaim_finished_worktrees(bare_path)
 
-        # Reaps worktree metadata whose directory is already gone (e.g. a
-        # crash before reclamation ran) — never touches a live worktree.
-        self._run_git("worktree", "prune", cwd=bare_path)
+            # Reaps worktree metadata whose directory is already gone (e.g. a
+            # crash before reclamation ran) — never touches a live worktree.
+            await self._run_git("worktree", "prune", cwd=bare_path)
 
-    @contextlib.contextmanager
-    def tree(self, repo: str, org_id: int, ref: str) -> Iterator[Path]:
+    @contextlib.asynccontextmanager
+    async def tree(self, repo: str, org_id: int, ref: str) -> AsyncIterator[Path]:
         """Checks out `ref` into its own scratch worktree and yields its path.
+
+        Takes no per-repo lock — unlike `ensure`, a `tree` call is free to
+        run for a repo whose `ensure` is concurrently in flight, and two
+        `tree` calls for the same repo never contend with each other either;
+        git's own worktree handling keeps both safe. A consumer may hold the
+        yielded path open arbitrarily long (it is never held across this
+        lock), which is also why `ensure` never takes it while checking out.
 
         Reclamation of the worktree is deferred to the next `ensure()` call
         for this repo rather than run here in `finally`: `git worktree
@@ -152,7 +197,7 @@ class RepoMirror:
         worktrees_root.mkdir(parents=True, exist_ok=True)
         scratch = Path(tempfile.mkdtemp(prefix="wt-", dir=worktrees_root))
 
-        self._run_git(
+        await self._run_git(
             "worktree", "add", "--detach", str(scratch), ref,
             cwd=bare_path,
         )
@@ -162,7 +207,7 @@ class RepoMirror:
             with self._finished_worktrees_lock:
                 self._finished_worktrees.append((bare_path, scratch))
 
-    def _reclaim_finished_worktrees(self, bare_path: Path) -> None:
+    async def _reclaim_finished_worktrees(self, bare_path: Path) -> None:
         with self._finished_worktrees_lock:
             due = [scratch for (bare, scratch) in self._finished_worktrees if bare == bare_path]
             self._finished_worktrees = [
@@ -173,7 +218,7 @@ class RepoMirror:
             # Guarded so one worktree's removal failure can't mask another's
             # or abort `ensure()` over a stale, already-gone directory.
             with contextlib.suppress(subprocess.CalledProcessError):
-                self._run_git(
+                await self._run_git(
                     "worktree", "remove", "--force", str(scratch),
                     cwd=bare_path,
                 )
@@ -187,7 +232,10 @@ class RepoMirror:
             return None
         return self._auth.token(org_id)
 
-    def _run_git(self, *args: str, cwd: Path, credential: str | None = None) -> None:
+    async def _run_git(self, *args: str, cwd: Path, credential: str | None = None) -> None:
+        await self._to_thread(self._run_git_sync, *args, cwd=cwd, credential=credential)
+
+    def _run_git_sync(self, *args: str, cwd: Path, credential: str | None = None) -> None:
         env = None
         if credential is not None:
             basic = base64.b64encode(f"x-access-token:{credential}".encode()).decode()
@@ -204,8 +252,15 @@ class RepoMirror:
             }
         self._run(["git", *args], cwd=cwd, env=env, check=True, capture_output=True)
 
+    async def _to_thread(self, func: Callable[_P, _R], *args: _P.args, **kwargs: _P.kwargs) -> _R:
+        """The one place `RepoMirror` offloads blocking work onto a thread it
+        owns — every shelling-out method routes through this (directly or via
+        `_run_git`) rather than calling `asyncio.to_thread` itself, so the
+        offload mechanism is never scattered across call sites."""
+        return await asyncio.to_thread(func, *args, **kwargs)
 
-def resolve_canonical_ref(repo: str, canonical_refs: dict[str, str], mirror: RepoMirror) -> str:
+
+async def resolve_canonical_ref(repo: str, canonical_refs: dict[str, str], mirror: RepoMirror) -> str:
     """The one home for the canonical-ref policy: `repo`'s configured
     override if `canonical_refs` has one, else its mirror's default branch.
     Every consumer that needs "the ref a served repo is canonical on" —
@@ -215,4 +270,4 @@ def resolve_canonical_ref(repo: str, canonical_refs: dict[str, str], mirror: Rep
     override = canonical_refs.get(repo)
     if override is not None:
         return override
-    return mirror.default_branch(repo)
+    return await mirror.default_branch(repo)

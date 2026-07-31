@@ -62,7 +62,7 @@ class FakeMirror:
         self.default_branch_calls: list[str] = []
         self.call_order: list[str] = []
 
-    def ensure(self, repo: str, org_id: int) -> None:
+    async def ensure(self, repo: str, org_id: int) -> None:
         self.ensure_calls.append((repo, org_id))
         self.call_order.append("ensure")
 
@@ -70,7 +70,7 @@ class FakeMirror:
         self.call_order.append("object_store_path")
         return self.repo_path
 
-    def default_branch(self, repo: str) -> str:
+    async def default_branch(self, repo: str) -> str:
         self.default_branch_calls.append(repo)
         self.call_order.append("default_branch")
         return self.default_branch_name
@@ -171,7 +171,7 @@ def make_backfill():
 # --- Canonical ref selection ------------------------------------------------
 
 
-def test_canonical_ref_uses_override_when_present(git_repo, make_backfill, commit_snapshot):
+async def test_canonical_ref_uses_override_when_present(git_repo, make_backfill, commit_snapshot):
     commit_snapshot(git_repo, "base", write={"README.md": "base"})
     _git("checkout", "-q", "-b", "feature-a", cwd=git_repo)
     a_sha = commit_snapshot(git_repo, "a change", write={"a.txt": "a"})
@@ -182,7 +182,7 @@ def test_canonical_ref_uses_override_when_present(git_repo, make_backfill, commi
         git_repo, default_branch_name="feature-b", canonical_refs={REPO_NAME: "feature-a"}
     )
 
-    ref = backfill._canonical_ref(REPO_NAME)
+    ref = await backfill._canonical_ref(REPO_NAME)
 
     assert ref == "feature-a"
     collector = GitCommitCollector()
@@ -191,12 +191,12 @@ def test_canonical_ref_uses_override_when_present(git_repo, make_backfill, commi
     assert b_sha not in walked_shas
 
 
-def test_canonical_ref_falls_back_to_default_branch(git_repo, make_backfill, commit_snapshot):
+async def test_canonical_ref_falls_back_to_default_branch(git_repo, make_backfill, commit_snapshot):
     commit_snapshot(git_repo, "base", write={"README.md": "base"})
 
     backfill, mirror, *_ = make_backfill(git_repo, default_branch_name="trunk", canonical_refs={})
 
-    ref = backfill._canonical_ref(REPO_NAME)
+    ref = await backfill._canonical_ref(REPO_NAME)
 
     assert ref == "trunk"
     assert mirror.default_branch_calls == [REPO_NAME]

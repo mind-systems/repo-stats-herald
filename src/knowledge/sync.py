@@ -32,15 +32,15 @@ class KnowledgeSync:
         self._canonical_refs = canonical_refs
         self._seeder = seeder
 
-    def _canonical_ref(self, repo: str) -> str:
-        return resolve_canonical_ref(repo, self._canonical_refs, self._mirror)
+    async def _canonical_ref(self, repo: str) -> str:
+        return await resolve_canonical_ref(repo, self._canonical_refs, self._mirror)
 
     async def backfill(self, repo: str, org_id: int) -> None:
-        self._mirror.ensure(repo, org_id)
-        canonical = self._canonical_ref(repo)
+        await self._mirror.ensure(repo, org_id)
+        canonical = await self._canonical_ref(repo)
 
         seen = 0
-        with self._mirror.tree(repo, org_id, canonical) as tree:
+        async with self._mirror.tree(repo, org_id, canonical) as tree:
             for path in tree.rglob("*"):
                 if not path.is_file() or ".git" in path.parts:
                     continue
@@ -54,8 +54,8 @@ class KnowledgeSync:
             await self._seeder.seed(repo, org_id)
 
     async def on_push(self, push: PushEvent) -> None:
-        self._mirror.ensure(push.repo, push.org_id)
-        canonical = self._canonical_ref(push.repo)
+        await self._mirror.ensure(push.repo, push.org_id)
+        canonical = await self._canonical_ref(push.repo)
 
         if push.branch != canonical:
             logger.debug(
@@ -74,7 +74,7 @@ class KnowledgeSync:
 
         indexed = 0
         removed = 0
-        with self._mirror.tree(push.repo, push.org_id, push.after) as tree:
+        async with self._mirror.tree(push.repo, push.org_id, push.after) as tree:
             for path in changed_paths:
                 if (tree / path).is_file():
                     await self._indexer.index(push.repo, path, tree)

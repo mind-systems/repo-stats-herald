@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             return f"https://github.com/{login}/{repo}.git"
 
         mirror = RepoMirror(Path(settings.mirror_root), auth, clone_source)
-        mirror.sweep_worktrees()
+        await mirror.sweep_worktrees()
 
         seeder = CoordinationSeeder(mirror, graph, settings.canonical_refs)
         app.state.knowledge_sync = KnowledgeSync(

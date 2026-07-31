@@ -59,12 +59,12 @@ class EpisodicBackfill:
         self._code_strategy = code_strategy
         self._source_strategy = source_strategy
 
-    def _canonical_ref(self, repo: str) -> str:
-        return resolve_canonical_ref(repo, self._canonical_refs, self._mirror)
+    async def _canonical_ref(self, repo: str) -> str:
+        return await resolve_canonical_ref(repo, self._canonical_refs, self._mirror)
 
     async def run(self, repo: str, org_id: int) -> None:
-        self._mirror.ensure(repo, org_id)
-        canonical = self._canonical_ref(repo)
+        await self._mirror.ensure(repo, org_id)
+        canonical = await self._canonical_ref(repo)
         bare = str(self._mirror.object_store_path(repo))
 
         recorded = await self._store.recorded_commit_shas(repo)

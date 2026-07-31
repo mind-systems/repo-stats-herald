@@ -1,6 +1,6 @@
 import contextlib
 import os
-from collections.abc import AsyncGenerator, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
@@ -37,10 +37,8 @@ def _dsn() -> str:
 
 
 class FakeMirror:
-    """Fake `RepoMirror`. `tree()` is a **synchronous** context manager (the
-    real `RepoMirror.tree` is sync today; roadmap 20.2.2 will make it
-    awaitable, but these fakes and the assertions built on them are meant to
-    survive that unchanged). `ensure`/`tree_enter`/`tree_exit` are appended to
+    """Fake `RepoMirror`. `tree()` is an `@asynccontextmanager`, matching the
+    real `RepoMirror.tree`. `ensure`/`tree_enter`/`tree_exit` are appended to
     a shared ordered `events` log also written to by `FakeEmbedder` and
     `FakeStore`, so a single test can assert orchestration order across the
     whole `write()` call.
@@ -52,12 +50,12 @@ class FakeMirror:
         self.ensure_calls: list[tuple[str, int]] = []
         self.tree_calls: list[tuple[str, int, str]] = []
 
-    def ensure(self, repo: str, org_id: int) -> None:
+    async def ensure(self, repo: str, org_id: int) -> None:
         self.ensure_calls.append((repo, org_id))
         self.events.append("ensure")
 
-    @contextlib.contextmanager
-    def tree(self, repo: str, org_id: int, ref: str) -> Iterator[Path]:
+    @contextlib.asynccontextmanager
+    async def tree(self, repo: str, org_id: int, ref: str) -> AsyncIterator[Path]:
         self.tree_calls.append((repo, org_id, ref))
         self.events.append("tree_enter")
         try:

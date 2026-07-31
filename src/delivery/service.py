@@ -78,9 +78,9 @@ class ReleaseDelivery:
 
         # First, never relying on `knowledge_sync` having ensured — background
         # task order across the registered tasks is not a contract.
-        self._mirror.ensure(event.repo, event.org_id)
+        await self._mirror.ensure(event.repo, event.org_id)
 
-        version = self._versioner.next(event.repo, role, event.before, event.after)
+        version = await self._versioner.next(event.repo, role, event.before, event.after)
         if version is None:
             # A back-merge/skip case: no staging-unique work, nothing to cut,
             # no version header to send.

@@ -1,4 +1,4 @@
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Callable
@@ -44,11 +44,11 @@ class _FakeMirror:
         self._claude_md = claude_md
         self._branch = branch
 
-    def default_branch(self, repo: str) -> str:
+    async def default_branch(self, repo: str) -> str:
         return self._branch
 
-    @contextmanager
-    def tree(self, repo: str, org_id: int, ref: str):
+    @asynccontextmanager
+    async def tree(self, repo: str, org_id: int, ref: str):
         with TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             if self._claude_md is not None:

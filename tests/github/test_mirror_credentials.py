@@ -30,10 +30,10 @@ def _basic_value(token: str) -> str:
 # --- Phase 1: persisted-remote safety — real run against `local_upstream` --
 
 
-def test_ensure_keeps_persisted_remote_url_equal_to_the_plain_upstream_path(
+async def test_ensure_keeps_persisted_remote_url_equal_to_the_plain_upstream_path(
     mirror, local_upstream
 ):
-    mirror.ensure(REPO, ORG_ID)
+    await mirror.ensure(REPO, ORG_ID)
 
     bare_path = mirror.object_store_path(REPO)
     result = subprocess.run(
@@ -45,10 +45,10 @@ def test_ensure_keeps_persisted_remote_url_equal_to_the_plain_upstream_path(
     assert result.stdout.strip() == str(local_upstream.path)
 
 
-def test_ensure_writes_no_authorization_or_token_string_into_bare_store_config(
+async def test_ensure_writes_no_authorization_or_token_string_into_bare_store_config(
     mirror, local_upstream
 ):
-    mirror.ensure(REPO, ORG_ID)
+    await mirror.ensure(REPO, ORG_ID)
 
     bare_path = mirror.object_store_path(REPO)
     config_text = (bare_path / "config").read_text()
@@ -68,7 +68,7 @@ class _RecordingRunner:
         return subprocess.CompletedProcess(args[0] if args else [], returncode=0, stdout="")
 
 
-def test_https_clone_passes_token_only_via_git_config_env(tmp_path, auth, monkeypatch):
+async def test_https_clone_passes_token_only_via_git_config_env(tmp_path, auth, monkeypatch):
     monkeypatch.setattr(auth, "token", lambda org_id: _TOKEN)
     runner = _RecordingRunner()
     local_mirror = RepoMirror(
@@ -78,7 +78,7 @@ def test_https_clone_passes_token_only_via_git_config_env(tmp_path, auth, monkey
         run=runner,
     )
 
-    local_mirror.ensure(REPO, ORG_ID)
+    await local_mirror.ensure(REPO, ORG_ID)
 
     clone_args, clone_kwargs = next(
         call for call in runner.calls if call[0][0][1] == "clone"
@@ -96,7 +96,7 @@ def test_https_clone_passes_token_only_via_git_config_env(tmp_path, auth, monkey
     assert env["GIT_CONFIG_VALUE_0"] == _basic_value(_TOKEN)
 
 
-def test_fetch_path_carries_the_same_credential_as_clone(tmp_path, auth, monkeypatch):
+async def test_fetch_path_carries_the_same_credential_as_clone(tmp_path, auth, monkeypatch):
     monkeypatch.setattr(auth, "token", lambda org_id: _TOKEN)
     runner = _RecordingRunner()
     local_mirror = RepoMirror(
@@ -107,7 +107,7 @@ def test_fetch_path_carries_the_same_credential_as_clone(tmp_path, auth, monkeyp
     )
     local_mirror.object_store_path(REPO).mkdir(parents=True)
 
-    local_mirror.ensure(REPO, ORG_ID)
+    await local_mirror.ensure(REPO, ORG_ID)
 
     fetch_args, fetch_kwargs = next(
         call for call in runner.calls if call[0][0][1] == "fetch"
@@ -125,7 +125,7 @@ def test_fetch_path_carries_the_same_credential_as_clone(tmp_path, auth, monkeyp
 # --- Phase 3: no token minted for non-http(s) sources ----------------------
 
 
-def test_ensure_never_consults_auth_token_for_a_filesystem_source(
+async def test_ensure_never_consults_auth_token_for_a_filesystem_source(
     mirror, local_upstream, monkeypatch, auth
 ):
     def _raise(org_id):
@@ -133,7 +133,7 @@ def test_ensure_never_consults_auth_token_for_a_filesystem_source(
 
     monkeypatch.setattr(auth, "token", _raise)
 
-    mirror.ensure(REPO, ORG_ID)
+    await mirror.ensure(REPO, ORG_ID)
 
 
 @pytest.mark.parametrize(
@@ -162,7 +162,7 @@ def test_credential_for_mints_a_token_only_for_http_schemes(
 # --- Phase 4: token absent from the raised failure -------------------------
 
 
-def test_failing_credentialed_clone_raises_called_process_error_without_leaking_token(
+async def test_failing_credentialed_clone_raises_called_process_error_without_leaking_token(
     tmp_path, auth, monkeypatch
 ):
     monkeypatch.setattr(auth, "token", lambda org_id: _TOKEN)
@@ -173,7 +173,7 @@ def test_failing_credentialed_clone_raises_called_process_error_without_leaking_
     )
 
     with pytest.raises(subprocess.CalledProcessError) as exc_info:
-        local_mirror.ensure(REPO, ORG_ID)
+        await local_mirror.ensure(REPO, ORG_ID)
 
     exc = exc_info.value
     assert _TOKEN not in str(exc)

@@ -41,7 +41,7 @@ async def _run(repo: str, org_id: int) -> None:
         return f"https://github.com/{login}/{repo}.git"
 
     mirror = RepoMirror(Path(settings.mirror_root), auth, clone_source)
-    mirror.sweep_worktrees()
+    await mirror.sweep_worktrees()
 
     distiller = CodeDistiller(OllamaClient(settings.ollama_url, settings.ollama_model, settings.ollama_api_key))
     strategy = CodeSourceStrategy()

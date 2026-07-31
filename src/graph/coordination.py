@@ -34,8 +34,8 @@ class CoordinationSeeder:
     def is_coordination_root(self, claude_md: str) -> bool:
         return any(line.strip() == _COORDINATION_HEADING for line in claude_md.splitlines())
 
-    def _canonical_ref(self, repo: str) -> str:
-        return resolve_canonical_ref(repo, self._canonical_refs, self._mirror)
+    async def _canonical_ref(self, repo: str) -> str:
+        return await resolve_canonical_ref(repo, self._canonical_refs, self._mirror)
 
     def _coordination_section(self, claude_md: str) -> list[str]:
         section: list[str] = []
@@ -95,9 +95,9 @@ class CoordinationSeeder:
         return edges
 
     async def seed(self, repo: str, org_id: int) -> None:
-        canonical = self._canonical_ref(repo)
+        canonical = await self._canonical_ref(repo)
 
-        with self._mirror.tree(repo, org_id, canonical) as tree:
+        async with self._mirror.tree(repo, org_id, canonical) as tree:
             claude_md_path = tree / "CLAUDE.md"
             text = claude_md_path.read_text() if claude_md_path.is_file() else None
 

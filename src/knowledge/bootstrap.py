@@ -53,9 +53,9 @@ class CodeBootstrap:
         prior draft at that path (idempotent, no duplication). Returns the
         written path."""
         ref = "HEAD"
-        self._mirror.ensure(repo, org_id)
+        await self._mirror.ensure(repo, org_id)
 
-        with self._mirror.tree(repo, org_id, ref) as tree:
+        async with self._mirror.tree(repo, org_id, ref) as tree:
             selected = []
             for path in tree.rglob("*"):
                 if not path.is_file() or ".git" in path.parts:

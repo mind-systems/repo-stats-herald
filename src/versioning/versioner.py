@@ -93,7 +93,7 @@ class Versioner:
         self._collector = collector
         self._version_increment = version_increment
 
-    def next(self, repo: str, role: BranchRole, before: str, after: str) -> Version | None:
+    async def next(self, repo: str, role: BranchRole, before: str, after: str) -> Version | None:
         """The version `before..after` carries on `role`'s branch, or `None`
         for a staging push whose content is entirely a back-merge (no
         staging-unique non-merge work). `role` is taken as given — already
@@ -106,11 +106,11 @@ class Versioner:
         ]
 
         if role is BranchRole.STAGING:
-            return self._next_staging(repo, bare, before, after, parsed)
+            return await self._next_staging(repo, bare, before, after, parsed)
         if role is BranchRole.RELEASE:
             return self._next_release(bare, after, parsed)
 
-    def _next_staging(
+    async def _next_staging(
         self,
         repo: str,
         bare: str,
@@ -118,7 +118,7 @@ class Versioner:
         after: str,
         parsed: list[tuple[Version, str]],
     ) -> Version | None:
-        exclude_ref = self._mirror.default_branch(repo)
+        exclude_ref = await self._mirror.default_branch(repo)
         if not self._collector.new_commits(bare, before, after, exclude_ref):
             # Only a genuine empty range reaches here now: a back-merge
             # (fast-forward or via a merge commit) that brings no

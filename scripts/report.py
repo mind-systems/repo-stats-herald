@@ -86,7 +86,7 @@ async def _run(schedule_name: str) -> None:
             return f"https://github.com/{login}/{repo}.git"
 
         mirror = RepoMirror(Path(settings.mirror_root), auth, clone_source)
-        mirror.sweep_worktrees()
+        await mirror.sweep_worktrees()
 
         registry = default_section_registry(
             mirror, resolver, reasoner, collector, strategy, llm, remaining_prompt
@@ -117,13 +117,13 @@ async def _run(schedule_name: str) -> None:
                 # The cron is decoupled from the push path, so it always
                 # ensures before building rather than assuming a push
                 # already did.
-                mirror.ensure(repo, org_id)
+                await mirror.ensure(repo, org_id)
 
                 # Passed as the `branch` arg purely to avoid a fake branch —
                 # the report path consumes only `plan.telegram_channel` and
                 # `plan.language`, never `plan.branch_role`/`is_release`/
                 # `is_prerelease`.
-                canonical = resolve_canonical_ref(repo, settings.canonical_refs, mirror)
+                canonical = await resolve_canonical_ref(repo, settings.canonical_refs, mirror)
                 plan = plan_resolver.resolve(org_id, repo, canonical)
 
                 notes = await localizer.report_notes(report, repo, org_id, {plan.language})
